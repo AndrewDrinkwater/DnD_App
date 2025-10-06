@@ -763,15 +763,22 @@ function App() {
         onMouseLeave={handleSidebarMouseLeave}
       >
         <div className="sidebar-header">
-          <div>
-            <div className="brand-mark">DnD Platform</div>
-            <p className="brand-subtitle">Orchestrate adventures with confidence.</p>
-          </div>
           <button
             type="button"
-            className="ghost sidebar-close"
+            className={`icon-button sidebar-pin-toggle${sidebarPinned ? ' active' : ''}`}
+            onClick={() => setSidebarPinned((prev) => !prev)}
+            aria-pressed={sidebarPinned}
+            aria-label={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+            title={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+          >
+            <span aria-hidden="true">{sidebarPinned ? '📌' : '📍'}</span>
+          </button>
+          <button
+            type="button"
+            className="icon-button sidebar-close"
             onClick={() => setSidebarMobileOpen(false)}
             aria-label="Close navigation"
+            title="Close navigation"
           >
             ×
           </button>
@@ -802,16 +809,6 @@ function App() {
             )
           })}
         </nav>
-        <div className="sidebar-footer">
-          <button
-            type="button"
-            className={`ghost sidebar-pin-toggle${sidebarPinned ? ' active' : ''}`}
-            onClick={() => setSidebarPinned((prev) => !prev)}
-            aria-pressed={sidebarPinned}
-          >
-            {sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
-          </button>
-        </div>
       </aside>
       {showSidebarBackdrop && (
         <button
@@ -834,17 +831,23 @@ function App() {
             >
               ☰
             </button>
-            <div>
-              <nav className="breadcrumbs" aria-label="Breadcrumb">
-                {breadcrumbs.map((item, index) => (
-                  <span key={item} className="breadcrumb-item">
-                    {item}
-                    {index < breadcrumbs.length - 1 && <span aria-hidden="true">›</span>}
-                  </span>
-                ))}
-              </nav>
-              <h1 className="module-title">{breadcrumbs[breadcrumbs.length - 1]}</h1>
-              {moduleDescription && <p className="module-description">{moduleDescription}</p>}
+            <div className="header-info">
+              <div className="header-brand">
+                <span className="brand-mark">DnD Platform</span>
+                <p className="brand-subtitle">Orchestrate adventures with confidence.</p>
+              </div>
+              <div className="header-module">
+                <nav className="breadcrumbs" aria-label="Breadcrumb">
+                  {breadcrumbs.map((item, index) => (
+                    <span key={item} className="breadcrumb-item">
+                      {item}
+                      {index < breadcrumbs.length - 1 && <span aria-hidden="true">›</span>}
+                    </span>
+                  ))}
+                </nav>
+                <h1 className="module-title">{breadcrumbs[breadcrumbs.length - 1]}</h1>
+                {moduleDescription && <p className="module-description">{moduleDescription}</p>}
+              </div>
             </div>
           </div>
           <div className="header-actions">
@@ -923,7 +926,6 @@ function App() {
 
               {activeModuleId === 'campaigns' && (
                 <CampaignsPage
-                  campaigns={campaigns}
                   accessibleCampaigns={accessibleCampaigns}
                   onSaveCampaign={handleSaveCampaign}
                   onDeleteCampaign={handleDeleteCampaign}
@@ -1176,7 +1178,6 @@ function WorldPage({ worlds, onSaveWorld, onDeleteWorld }) {
 }
 
 function CampaignsPage({
-  campaigns,
   accessibleCampaigns,
   onSaveCampaign,
   onDeleteCampaign,
@@ -2864,9 +2865,9 @@ function RecordDrawer({ open, title, onClose, actions, children }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [open, onClose])
 
-  if (!open) return null
-
   const headingId = useMemo(() => newId('drawer-title'), [])
+
+  if (!open) return null
 
   return (
     <div className="drawer-layer">
