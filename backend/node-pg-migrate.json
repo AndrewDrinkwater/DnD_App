@@ -1,0 +1,7 @@
+{
+  "dir": "src/migrations",
+  "databaseUrl": { "env": "DATABASE_URL" },
+  "migrationFileLanguage": "cjs",
+  "schema": "public",
+  "direction": "up"
+}
