@@ -8,11 +8,19 @@ import {
   UserSystemRole,
   UserCampaignRole
 } from '../models/index.js';
+import { hashPassword } from '../utils/password.js';
 
 const userIncludes = [
   { model: Character, as: 'characters', include: [{ model: Campaign, as: 'campaigns', through: { attributes: [] } }] },
   { model: SystemRole, as: 'systemRoles', through: { attributes: [] } }
 ];
+
+const sanitizeUser = (user) => {
+  if (!user) return null;
+  const plain = user.get({ plain: true });
+  delete plain.password_hash;
+  return plain;
+};
 
 const ensureUserExists = async (id, res) => {
   const user = await User.findByPk(id);
@@ -25,7 +33,10 @@ const ensureUserExists = async (id, res) => {
 
 export const getUsers = async (req, res) => {
   try {
-    const users = await User.findAll({ include: userIncludes });
+    const users = await User.findAll({
+      include: userIncludes,
+      attributes: { exclude: ['password_hash'] }
+    });
     res.json({ success: true, data: users });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -34,7 +45,10 @@ export const getUsers = async (req, res) => {
 
 export const getUserById = async (req, res) => {
   try {
-    const user = await User.findByPk(req.params.id, { include: userIncludes });
+    const user = await User.findByPk(req.params.id, {
+      include: userIncludes,
+      attributes: { exclude: ['password_hash'] }
+    });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -46,9 +60,9 @@ export const getUserById = async (req, res) => {
 
 export const createUser = async (req, res) => {
   try {
-    const { username, email, password_hash } = req.body;
-    if (!username || !email || !password_hash) {
-      return res.status(400).json({ success: false, message: 'username, email and password_hash are required' });
+    const { username, email, password, password_hash } = req.body;
+    if (!username || !email || (!password && !password_hash)) {
+      return res.status(400).json({ success: false, message: 'username, email and password are required' });
     }
 
     const existing = await User.findOne({ where: { [Op.or]: [{ username }, { email }] } });
@@ -56,8 +70,10 @@ export const createUser = async (req, res) => {
       return res.status(409).json({ success: false, message: 'User with provided username or email already exists' });
     }
 
-    const user = await User.create({ username, email, password_hash });
-    res.status(201).json({ success: true, data: user, message: 'User created successfully' });
+    const hashedPassword = password_hash || await hashPassword(password);
+
+    const user = await User.create({ username, email, password_hash: hashedPassword });
+    res.status(201).json({ success: true, data: sanitizeUser(user), message: 'User created successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -68,18 +84,25 @@ export const updateUser = async (req, res) => {
     const user = await ensureUserExists(req.params.id, res);
     if (!user) return;
 
-    const { username, email, password_hash, active } = req.body;
-    if (typeof username === 'undefined' && typeof email === 'undefined' && typeof password_hash === 'undefined' && typeof active === 'undefined') {
+    const { username, email, password, password_hash, active } = req.body;
+    if (typeof username === 'undefined' && typeof email === 'undefined' && typeof password === 'undefined' && typeof password_hash === 'undefined' && typeof active === 'undefined') {
       return res.status(400).json({ success: false, message: 'At least one field must be provided for update' });
     }
 
     if (typeof username !== 'undefined') user.username = username;
     if (typeof email !== 'undefined') user.email = email;
-    if (typeof password_hash !== 'undefined') user.password_hash = password_hash;
+    if (typeof password !== 'undefined') {
+      user.password_hash = await hashPassword(password);
+    } else if (typeof password_hash !== 'undefined') {
+      user.password_hash = password_hash;
+    }
     if (typeof active !== 'undefined') user.active = active;
 
     await user.save();
-    const reloaded = await User.findByPk(user.id, { include: userIncludes });
+    const reloaded = await User.findByPk(user.id, {
+      include: userIncludes,
+      attributes: { exclude: ['password_hash'] }
+    });
     res.json({ success: true, data: reloaded, message: 'User updated successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -93,7 +116,7 @@ export const deleteUser = async (req, res) => {
 
     user.active = false;
     await user.save();
-    res.json({ success: true, data: user, message: 'User deactivated successfully' });
+    res.json({ success: true, data: sanitizeUser(user), message: 'User deactivated successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -144,7 +167,8 @@ export const getUserCharacters = async (req, res) => {
 export const getUserSystemRoles = async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id, {
-      include: [{ model: SystemRole, as: 'systemRoles', through: { attributes: [] } }]
+      include: [{ model: SystemRole, as: 'systemRoles', through: { attributes: [] } }],
+      attributes: { exclude: ['password_hash'] }
     });
 
     if (!user) {

@@ -3,6 +3,8 @@ import cors from 'cors';
 import { sequelize } from './models/index.js';
 import { cfg } from './config/env.js';
 import apiRoutes from './routes/index.js';
+import authRoutes from './routes/authRoutes.js';
+import { authenticateToken } from './middleware/authMiddleware.js';
 
 const app = express();
 
@@ -28,7 +30,8 @@ app.use(cors({
 app.use(express.json());
 
 // --- Routes ---
-app.use('/api', apiRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api', authenticateToken, apiRoutes);
 
 app.get('/', (req, res) => res.send('DnD_app backend running'));
 
