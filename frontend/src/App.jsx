@@ -1,6 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
+const STORAGE_KEY = 'dnd-platform-state'
+
+const readStoredState = () => {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return null
+    return parsed
+  } catch (error) {
+    console.warn('Failed to read platform state from storage', error)
+    return null
+  }
+}
+
+const writeStoredState = (payload) => {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+  } catch (error) {
+    console.warn('Failed to persist platform state', error)
+  }
+}
+
 const seededRoles = [
   {
     id: 'role-system-admin',
@@ -90,24 +115,63 @@ const newId = (prefix) => {
 }
 
 function App() {
+  const storedState = useMemo(() => readStoredState(), [])
+
   const [currentUser] = useState({
     id: 'user-aelar',
-    name: 'Aelar Morningstar',
-    roles: ['system-admin']
+    fallbackName: 'Aelar Morningstar',
+    email: 'aelar@example.com',
+    title: 'System Administrator',
+    capabilityRoles: ['system-admin'],
+    preferences: {
+      language: 'English (UK)',
+      region: 'United Kingdom',
+      timezone: 'Europe/London'
+    }
   })
 
   const [activeModuleId, setActiveModuleId] = useState('platform-admin')
   const [activeSectionId, setActiveSectionId] = useState('users')
+  const [profileOpen, setProfileOpen] = useState(false)
 
-  const [roles, setRoles] = useState(seededRoles)
-  const [users, setUsers] = useState(seededUsers)
-  const [campaigns, setCampaigns] = useState(seededCampaigns)
+  const [roles, setRoles] = useState(() => (Array.isArray(storedState?.roles) ? storedState.roles : seededRoles))
+  const [users, setUsers] = useState(() => (Array.isArray(storedState?.users) ? storedState.users : seededUsers))
+  const [campaigns, setCampaigns] = useState(() =>
+    Array.isArray(storedState?.campaigns) ? storedState.campaigns : seededCampaigns
+  )
+
+  const resolvedCurrentUser = useMemo(
+    () => users.find((user) => user.id === currentUser.id) ?? null,
+    [users, currentUser.id]
+  )
+
+  const currentUserDisplayName = resolvedCurrentUser?.displayName ?? currentUser.fallbackName
+  const currentUserEmail = resolvedCurrentUser?.email ?? currentUser.email
+  const currentUserStatus = resolvedCurrentUser?.status ?? 'Active'
+  const currentUserTitle = currentUser.title
+  const currentUserPreferences = currentUser.preferences
+
+  const currentUserRoleNames = useMemo(() => {
+    if (!resolvedCurrentUser) {
+      return currentUser.capabilityRoles.map((role) => role.replace('-', ' '))
+    }
+
+    if (!resolvedCurrentUser.roles || resolvedCurrentUser.roles.length === 0) {
+      return ['No roles assigned']
+    }
+
+    const mappedRoles = resolvedCurrentUser.roles
+      .map((roleId) => roles.find((role) => role.id === roleId)?.name)
+      .filter(Boolean)
+
+    return mappedRoles.length > 0 ? mappedRoles : ['Unknown role']
+  }, [resolvedCurrentUser, roles, currentUser.capabilityRoles])
 
   const permissions = useMemo(() => {
     const modulePermissions = capabilityMatrix['platform-admin'] || {}
     const derivedPermissions = new Set()
 
-    currentUser.roles.forEach((roleKey) => {
+    currentUser.capabilityRoles.forEach((roleKey) => {
       const capabilities = modulePermissions[roleKey]
       if (capabilities) {
         capabilities.forEach((cap) => derivedPermissions.add(cap))
@@ -120,7 +184,11 @@ function App() {
       canManageRoles: derivedPermissions.has('manage-roles'),
       canManageCampaigns: derivedPermissions.has('manage-campaigns')
     }
-  }, [currentUser.roles])
+  }, [currentUser.capabilityRoles])
+
+  useEffect(() => {
+    writeStoredState({ users, roles, campaigns })
+  }, [users, roles, campaigns])
 
   useEffect(() => {
     if (!permissions.canViewPlatformAdmin) {
@@ -130,6 +198,11 @@ function App() {
 
   const breadcrumbs = useMemo(() => {
     const trail = ['Home']
+
+    if (profileOpen) {
+      trail.push('My Profile')
+      return trail
+    }
 
     if (activeModuleId) {
       const module = modules.find((item) => item.id === activeModuleId)
@@ -146,13 +219,16 @@ function App() {
     }
 
     return trail
-  }, [activeModuleId, activeSectionId])
+  }, [profileOpen, activeModuleId, activeSectionId])
 
   const moduleDescription = useMemo(() => {
+    if (profileOpen) {
+      return 'Review and manage your personal account information, preferences, and security.'
+    }
     if (!activeModuleId) return ''
     const module = modules.find((item) => item.id === activeModuleId)
     return module?.description || ''
-  }, [activeModuleId])
+  }, [profileOpen, activeModuleId])
 
   const sidebarModules = useMemo(() => {
     if (!permissions.canViewPlatformAdmin) {
@@ -300,7 +376,10 @@ function App() {
                 key={module.id}
                 className={`sidebar-link${isActive ? ' active' : ''}`}
                 type="button"
-                onClick={() => setActiveModuleId(module.id)}
+                onClick={() => {
+                  setProfileOpen(false)
+                  setActiveModuleId(module.id)
+                }}
               >
                 <span>{module.label}</span>
               </button>
@@ -324,35 +403,56 @@ function App() {
             {moduleDescription && <p className="module-description">{moduleDescription}</p>}
           </div>
 
-          <div className="current-user">
-            <span className="user-name">{currentUser.name}</span>
-            <span className="user-role">{currentUser.roles.map((role) => role.replace('-', ' ')).join(', ')}</span>
-          </div>
+          <button
+            type="button"
+            className="current-user-button"
+            onClick={() => setProfileOpen(true)}
+            aria-label="Open my profile"
+          >
+            <span className="user-name">{currentUserDisplayName}</span>
+            <span className="user-role">{currentUserRoleNames.join(', ')}</span>
+          </button>
         </header>
 
         <main className="module-content">
-          {!permissions.canViewPlatformAdmin && (
-            <div className="empty-state">
-              <h2>Access restricted</h2>
-              <p>You currently do not have permission to administer the platform.</p>
-            </div>
-          )}
-
-          {permissions.canViewPlatformAdmin && activeModuleId === 'platform-admin' && (
-            <PlatformAdmin
-              activeSectionId={activeSectionId}
-              onSectionChange={setActiveSectionId}
-              users={users}
-              roles={roles}
-              campaigns={campaigns}
-              permissions={permissions}
-              onSaveUser={handleSaveUser}
-              onDeleteUser={handleDeleteUser}
-              onSaveRole={handleSaveRole}
-              onDeleteRole={handleDeleteRole}
-              onSaveCampaign={handleSaveCampaign}
-              onDeleteCampaign={handleDeleteCampaign}
+          {profileOpen ? (
+            <MyProfile
+              name={currentUserDisplayName}
+              title={currentUserTitle}
+              email={currentUserEmail}
+              status={currentUserStatus}
+              username={resolvedCurrentUser?.username}
+              roleNames={currentUserRoleNames}
+              onClose={() => setProfileOpen(false)}
+              lastUpdated={resolvedCurrentUser?.updatedAt}
+              preferences={currentUserPreferences}
             />
+          ) : (
+            <>
+              {!permissions.canViewPlatformAdmin && (
+                <div className="empty-state">
+                  <h2>Access restricted</h2>
+                  <p>You currently do not have permission to administer the platform.</p>
+                </div>
+              )}
+
+              {permissions.canViewPlatformAdmin && activeModuleId === 'platform-admin' && (
+                <PlatformAdmin
+                  activeSectionId={activeSectionId}
+                  onSectionChange={setActiveSectionId}
+                  users={users}
+                  roles={roles}
+                  campaigns={campaigns}
+                  permissions={permissions}
+                  onSaveUser={handleSaveUser}
+                  onDeleteUser={handleDeleteUser}
+                  onSaveRole={handleSaveRole}
+                  onDeleteRole={handleDeleteRole}
+                  onSaveCampaign={handleSaveCampaign}
+                  onDeleteCampaign={handleDeleteCampaign}
+                />
+              )}
+            </>
           )}
         </main>
       </div>
@@ -378,9 +478,75 @@ function PlatformAdmin({
   const [roleDrawer, setRoleDrawer] = useState({ open: false, mode: 'create', record: null })
   const [campaignDrawer, setCampaignDrawer] = useState({ open: false, mode: 'create', record: null })
 
-  const [userForm, setUserForm] = useState({ displayName: '', email: '', username: '', password: '', roles: [], status: 'Invited' })
+  const [userForm, setUserForm] = useState({
+    displayName: '',
+    email: '',
+    username: '',
+    password: '',
+    roles: [],
+    status: 'Invited'
+  })
   const [roleForm, setRoleForm] = useState({ name: '', description: '' })
   const [campaignForm, setCampaignForm] = useState({ name: '', status: 'Draft', summary: '', assignments: [] })
+
+  const [confirmState, setConfirmState] = useState({
+    open: false,
+    title: '',
+    description: '',
+    confirmLabel: '',
+    detail: '',
+    onConfirm: null
+  })
+
+  const closeConfirm = () => {
+    setConfirmState({
+      open: false,
+      title: '',
+      description: '',
+      confirmLabel: '',
+      detail: '',
+      onConfirm: null
+    })
+  }
+
+  const requestDeleteConfirmation = ({ noun, detail, onConfirm }) => {
+    const capitalised = noun.charAt(0).toUpperCase() + noun.slice(1)
+    setConfirmState({
+      open: true,
+      title: `Delete ${capitalised}`,
+      description: `Are you sure you want to delete this ${noun}? This action cannot be undone.`,
+      confirmLabel: `Delete ${noun}`,
+      detail: detail || '',
+      onConfirm
+    })
+  }
+
+  const handleRequestDeleteUser = (userId) => {
+    const record = users.find((user) => user.id === userId)
+    requestDeleteConfirmation({
+      noun: 'user',
+      detail: record?.displayName,
+      onConfirm: () => onDeleteUser(userId)
+    })
+  }
+
+  const handleRequestDeleteRole = (roleId) => {
+    const record = roles.find((role) => role.id === roleId)
+    requestDeleteConfirmation({
+      noun: 'role',
+      detail: record?.name,
+      onConfirm: () => onDeleteRole(roleId)
+    })
+  }
+
+  const handleRequestDeleteCampaign = (campaignId) => {
+    const record = campaigns.find((campaign) => campaign.id === campaignId)
+    requestDeleteConfirmation({
+      noun: 'campaign',
+      detail: record?.name,
+      onConfirm: () => onDeleteCampaign(campaignId)
+    })
+  }
 
   useEffect(() => {
     if (!userDrawer.open) {
@@ -581,7 +747,7 @@ function PlatformAdmin({
           records={users}
           onCreate={permissions.canManageUsers ? openCreateUser : undefined}
           onEdit={permissions.canManageUsers ? openEditUser : undefined}
-          onDelete={permissions.canManageUsers ? onDeleteUser : undefined}
+          onDelete={permissions.canManageUsers ? handleRequestDeleteUser : undefined}
           emptyMessage="Invite your first adventurer to the platform."
         />
       )}
@@ -593,7 +759,7 @@ function PlatformAdmin({
           records={roles}
           onCreate={permissions.canManageRoles ? openCreateRole : undefined}
           onEdit={permissions.canManageRoles ? openEditRole : undefined}
-          onDelete={permissions.canManageRoles ? onDeleteRole : undefined}
+          onDelete={permissions.canManageRoles ? handleRequestDeleteRole : undefined}
           emptyMessage="Create a role to orchestrate platform access."
         />
       )}
@@ -605,7 +771,7 @@ function PlatformAdmin({
           records={campaigns}
           onCreate={permissions.canManageCampaigns ? openCreateCampaign : undefined}
           onEdit={permissions.canManageCampaigns ? openEditCampaign : undefined}
-          onDelete={permissions.canManageCampaigns ? onDeleteCampaign : undefined}
+          onDelete={permissions.canManageCampaigns ? handleRequestDeleteCampaign : undefined}
           emptyMessage="Launch your first campaign and assemble a party."
         />
       )}
@@ -852,7 +1018,122 @@ function PlatformAdmin({
           </div>
         </form>
       </RecordDrawer>
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        detail={confirmState.detail}
+        confirmLabel={confirmState.confirmLabel}
+        onCancel={closeConfirm}
+        onConfirm={() => {
+          if (typeof confirmState.onConfirm === 'function') {
+            confirmState.onConfirm()
+          }
+          closeConfirm()
+        }}
+      />
     </div>
+  )
+}
+
+function MyProfile({ name, title, email, status, username, roleNames, onClose, lastUpdated, preferences }) {
+  const displayName = name || 'Unnamed user'
+  const displayTitle = title || 'Adventurer'
+  const displayEmail = email || '—'
+  const displayUsername = username || 'Not assigned'
+  const safeRoleNames =
+    roleNames && roleNames.length > 0 ? Array.from(new Set(roleNames)) : ['No roles assigned']
+  const statusKey = typeof status === 'string' ? status.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'unknown'
+  const statusLabel = status || 'Unknown'
+  const avatarInitials = displayName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('') || 'NA'
+
+  const formattedUpdatedAt = lastUpdated
+    ? new Date(lastUpdated).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    : 'Not available'
+
+  const preferenceLanguage = preferences?.language || 'Match system default'
+  const preferenceRegion = preferences?.region || 'Not set'
+  const preferenceTimezone = preferences?.timezone || 'Not set'
+
+  return (
+    <section className="my-profile">
+      <header className="profile-header">
+        <div>
+          <h2>My Profile</h2>
+          <p>Keep your personal information up to date and control how other adventurers see you.</p>
+        </div>
+        <button type="button" className="ghost" onClick={onClose}>
+          Back to platform admin
+        </button>
+      </header>
+
+      <div className="profile-grid">
+        <article className="profile-card profile-card--identity">
+          <div className="profile-identity">
+            <div className="profile-avatar" aria-hidden="true">
+              {avatarInitials}
+            </div>
+            <div>
+              <h3>{displayName}</h3>
+              <p className="profile-title">{displayTitle}</p>
+            </div>
+          </div>
+
+          <dl className="profile-meta">
+            <div>
+              <dt>Status</dt>
+              <dd>
+                <span className={`status-badge status-${statusKey}`}>{statusLabel}</span>
+              </dd>
+            </div>
+            <div>
+              <dt>Email</dt>
+              <dd>{displayEmail}</dd>
+            </div>
+            <div>
+              <dt>Username</dt>
+              <dd>{displayUsername}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article className="profile-card">
+          <h3>Roles &amp; access</h3>
+          <p className="profile-card-subtitle">You currently have access as:</p>
+          <ul className="profile-role-list">
+            {safeRoleNames.map((role) => (
+              <li key={role}>{role}</li>
+            ))}
+          </ul>
+          <p className="profile-meta-note">Last updated {formattedUpdatedAt}</p>
+        </article>
+
+        <article className="profile-card">
+          <h3>Preferences</h3>
+          <dl className="profile-preferences">
+            <div>
+              <dt>Language</dt>
+              <dd>{preferenceLanguage}</dd>
+            </div>
+            <div>
+              <dt>Region</dt>
+              <dd>{preferenceRegion}</dd>
+            </div>
+            <div>
+              <dt>Time zone</dt>
+              <dd>{preferenceTimezone}</dd>
+            </div>
+          </dl>
+          <p className="profile-meta-note">Personal settings can be updated at any time.</p>
+        </article>
+      </div>
+    </section>
   )
 }
 
@@ -1001,6 +1282,64 @@ function StandardListView({
         </div>
       )}
     </section>
+  )
+}
+
+function ConfirmDialog({ open, title, description, detail, confirmLabel, onCancel, onConfirm }) {
+  useEffect(() => {
+    if (!open) return
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCancel()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open, onCancel])
+
+  if (!open) return null
+
+  const effectiveTitle = title || 'Confirm action'
+  const effectiveDescription = description || 'Are you sure you want to continue?'
+  const effectiveConfirmLabel = confirmLabel || 'Delete'
+
+  const descriptionId = 'confirm-dialog-description'
+
+  return (
+    <div className="confirm-layer">
+      <div className="confirm-overlay" onClick={onCancel} />
+      <div
+        className="confirm-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby={descriptionId}
+      >
+        <div className="confirm-icon" aria-hidden="true">
+          !
+        </div>
+        <div className="confirm-content">
+          <h3 id="confirm-dialog-title">{effectiveTitle}</h3>
+          <p id={descriptionId}>{effectiveDescription}</p>
+          {detail && (
+            <p className="confirm-detail">
+              <strong>{detail}</strong>
+            </p>
+          )}
+        </div>
+        <div className="confirm-actions">
+          <button type="button" className="ghost" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" className="primary destructive" onClick={onConfirm}>
+            {effectiveConfirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
