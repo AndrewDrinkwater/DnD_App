@@ -1,12 +1,19 @@
 import express from 'express';
 import { sequelize } from './models/index.js';
 import { cfg } from './config/env.js';
+import apiRoutes from './routes/index.js';
 
 const app = express();
 app.use(express.json());
 
-// simple route
+app.use('/api', apiRoutes);
+
 app.get('/', (req, res) => res.send('DnD_app backend running'));
+
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ success: false, message: err.message });
+});
 
 (async () => {
   try {
