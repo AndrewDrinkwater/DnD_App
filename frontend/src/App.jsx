@@ -206,10 +206,20 @@ function App() {
   const currentUserStatus = resolvedCurrentUser?.status ?? 'Active'
   const currentUserTitle = currentAccountProfile?.title ?? 'Adventurer'
   const currentUserPreferences = currentAccountProfile?.preferences ?? {}
-  const currentUserCapabilityRoles = useMemo(
-    () => currentAccountProfile?.capabilityRoles ?? [],
-    [currentAccountProfile]
-  )
+  const currentUserCapabilityRoles = useMemo(() => {
+    const capabilitySet = new Set(currentAccountProfile?.capabilityRoles ?? [])
+
+    if (resolvedCurrentUser?.roles && resolvedCurrentUser.roles.length > 0) {
+      resolvedCurrentUser.roles.forEach((roleId) => {
+        const matchedRole = roles.find((role) => role.id === roleId)
+        if (matchedRole && matchedRole.name === 'System Administrator') {
+          capabilitySet.add('system-admin')
+        }
+      })
+    }
+
+    return Array.from(capabilitySet)
+  }, [currentAccountProfile, resolvedCurrentUser, roles])
   const loginExamples = useMemo(
     () =>
       seededUsers.map((user) => ({
