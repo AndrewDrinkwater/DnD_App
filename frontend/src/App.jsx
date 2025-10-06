@@ -35,6 +35,13 @@ const seededRoles = [
     updatedAt: '2024-04-01T08:25:00Z'
   },
   {
+    id: 'role-world-admin',
+    name: 'World Admin',
+    description: 'Curate the shared world, lore, and regions available to campaigns.',
+    createdAt: '2024-01-14T11:00:00Z',
+    updatedAt: '2024-03-28T16:12:00Z'
+  },
+  {
     id: 'role-dungeon-master',
     name: 'Dungeon Master',
     description: 'Owns the storytelling experience for a campaign.',
@@ -58,7 +65,7 @@ const seededUsers = [
     username: 'aelar',
     password: 'Temp!123',
     status: 'Active',
-    roles: ['role-system-admin'],
+    roles: ['role-system-admin', 'role-world-admin'],
     updatedAt: '2024-04-18T12:02:00Z'
   },
   {
@@ -84,6 +91,31 @@ const seededCampaigns = [
       { id: 'assign-2', userId: 'user-lyra', roleId: 'role-player' }
     ],
     updatedAt: '2024-04-14T21:00:00Z'
+  }
+]
+
+const seededWorlds = [
+  {
+    id: 'world-faerun',
+    name: 'Forgotten Realms',
+    tagline: 'A classic high fantasy setting packed with legends.',
+    description:
+      'The Forgotten Realms spans the continent of Faerûn, from the Spine of the World to the jungles of Chult. Adventurers uncover ancient ruins, broker uneasy alliances, and confront lurking threats from gods and monsters alike.',
+    createdAt: '2024-01-01T09:00:00Z',
+    updatedAt: '2024-04-05T18:42:00Z'
+  }
+]
+
+const seededCharacters = [
+  {
+    id: 'character-lyra',
+    name: 'Lyra Willowstep',
+    ancestry: 'Lightfoot Halfling',
+    className: 'College of Lore Bard',
+    level: 7,
+    ownerId: 'user-lyra',
+    campaignId: 'campaign-tiamat',
+    updatedAt: '2024-04-12T14:18:00Z'
   }
 ]
 
@@ -114,9 +146,30 @@ const accountProfiles = {
 
 const modules = [
   {
+    id: 'world',
+    label: 'World',
+    icon: '🌍',
+    description: 'Curate worlds, lore, and locations that power your campaigns.',
+    requiredRoleNames: ['World Admin']
+  },
+  {
+    id: 'campaigns',
+    label: 'Campaigns',
+    icon: '📜',
+    description: 'Coordinate the adventures you are part of and align your party context.'
+  },
+  {
+    id: 'characters',
+    label: 'Characters',
+    icon: '🧙',
+    description: 'Manage your roster of heroes, sidekicks, and alter egos across worlds.'
+  },
+  {
     id: 'platform-admin',
     label: 'Platform Admin',
-    description: 'Manage users, roles, and campaigns across the multiverse.'
+    icon: '🛠️',
+    description: 'Manage users, roles, and campaigns across the multiverse.',
+    requiredCapability: 'canViewPlatformAdmin'
   }
 ]
 
@@ -163,6 +216,30 @@ function App() {
   const [campaigns, setCampaigns] = useState(() =>
     Array.isArray(storedState?.campaigns) ? storedState.campaigns : seededCampaigns
   )
+  const [worlds, setWorlds] = useState(() =>
+    Array.isArray(storedState?.worlds) ? storedState.worlds : seededWorlds
+  )
+  const [characters, setCharacters] = useState(() =>
+    Array.isArray(storedState?.characters) ? storedState.characters : seededCharacters
+  )
+  const [appContext, setAppContext] = useState(() => {
+    if (storedState?.appContext && typeof storedState.appContext === 'object') {
+      return {
+        campaignId: storedState.appContext.campaignId || '',
+        characterId: storedState.appContext.characterId || ''
+      }
+    }
+    return { campaignId: '', characterId: '' }
+  })
+  const [sidebarPinned, setSidebarPinned] = useState(() => {
+    if (storedState?.ui && typeof storedState.ui === 'object') {
+      const value = storedState.ui.sidebarPinned
+      if (typeof value === 'boolean') return value
+    }
+    return true
+  })
+  const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false)
+  const [sidebarHovered, setSidebarHovered] = useState(false)
   const [authError, setAuthError] = useState(null)
   const authenticatedUserId = session?.authenticatedUserId ?? null
 
@@ -251,6 +328,18 @@ function App() {
     return ['No roles assigned']
   }, [resolvedCurrentUser, roles, currentUserCapabilityRoles])
 
+  const assignedRoleNames = useMemo(() => {
+    if (!resolvedCurrentUser?.roles) return []
+    return resolvedCurrentUser.roles
+      .map((roleId) => roles.find((role) => role.id === roleId)?.name)
+      .filter(Boolean)
+  }, [resolvedCurrentUser, roles])
+
+  const isSystemAdmin = useMemo(
+    () => currentUserCapabilityRoles.includes('system-admin') || assignedRoleNames.includes('System Administrator'),
+    [currentUserCapabilityRoles, assignedRoleNames]
+  )
+
   const permissions = useMemo(() => {
     const modulePermissions = capabilityMatrix['platform-admin'] || {}
     const derivedPermissions = new Set()
@@ -270,6 +359,27 @@ function App() {
     }
   }, [currentUserCapabilityRoles])
 
+  const accessibleCampaigns = useMemo(() => {
+    if (isSystemAdmin) {
+      return campaigns
+    }
+
+    if (!authenticatedUserId) {
+      return []
+    }
+
+    return campaigns.filter((campaign) =>
+      Array.isArray(campaign.assignments)
+        ? campaign.assignments.some((assignment) => assignment.userId === authenticatedUserId)
+        : false
+    )
+  }, [campaigns, authenticatedUserId, isSystemAdmin])
+
+  const myCharacters = useMemo(() => {
+    if (!authenticatedUserId) return []
+    return characters.filter((character) => character.ownerId === authenticatedUserId)
+  }, [characters, authenticatedUserId])
+
   useEffect(() => {
     if (authenticatedUserId && !resolvedCurrentUser) {
       setSession({ authenticatedUserId: null })
@@ -281,14 +391,39 @@ function App() {
   }, [authenticatedUserId, resolvedCurrentUser])
 
   useEffect(() => {
-    writeStoredState({ users, roles, campaigns, session })
-  }, [users, roles, campaigns, session])
+    if (!appContext.campaignId) return
+    if (!accessibleCampaigns.some((campaign) => campaign.id === appContext.campaignId)) {
+      setAppContext((prev) => ({ ...prev, campaignId: '' }))
+    }
+  }, [accessibleCampaigns, appContext.campaignId])
+
+  useEffect(() => {
+    if (!appContext.characterId) return
+    if (!myCharacters.some((character) => character.id === appContext.characterId)) {
+      setAppContext((prev) => ({ ...prev, characterId: '' }))
+    }
+  }, [myCharacters, appContext.characterId])
+
+  useEffect(() => {
+    writeStoredState({
+      users,
+      roles,
+      campaigns,
+      worlds,
+      characters,
+      session,
+      appContext,
+      ui: { sidebarPinned }
+    })
+  }, [users, roles, campaigns, worlds, characters, session, appContext, sidebarPinned])
 
   useEffect(() => {
     if (!permissions.canViewPlatformAdmin) {
       setActiveModuleId(null)
     }
   }, [permissions.canViewPlatformAdmin])
+
+  const activeModule = useMemo(() => modules.find((item) => item.id === activeModuleId) || null, [activeModuleId])
 
   const breadcrumbs = useMemo(() => {
     const trail = ['Home']
@@ -298,11 +433,8 @@ function App() {
       return trail
     }
 
-    if (activeModuleId) {
-      const module = modules.find((item) => item.id === activeModuleId)
-      if (module) {
-        trail.push(module.label)
-      }
+    if (activeModule) {
+      trail.push(activeModule.label)
     }
 
     if (activeSectionId) {
@@ -313,24 +445,45 @@ function App() {
     }
 
     return trail
-  }, [profileOpen, activeModuleId, activeSectionId])
+  }, [profileOpen, activeModule, activeSectionId])
 
   const moduleDescription = useMemo(() => {
     if (profileOpen) {
       return 'Review and manage your personal account information, preferences, and security.'
     }
     if (!activeModuleId) return ''
-    const module = modules.find((item) => item.id === activeModuleId)
-    return module?.description || ''
-  }, [profileOpen, activeModuleId])
+    return activeModule?.description || ''
+  }, [profileOpen, activeModuleId, activeModule])
 
-  const sidebarModules = useMemo(() => {
-    if (!permissions.canViewPlatformAdmin) {
-      return []
+  const sidebarModules = useMemo(
+    () =>
+      modules.filter((module) => {
+        if (module.requiredCapability && !permissions[module.requiredCapability]) {
+          return false
+        }
+        if (Array.isArray(module.requiredRoleNames) && module.requiredRoleNames.length > 0) {
+          return module.requiredRoleNames.some((roleName) => assignedRoleNames.includes(roleName))
+        }
+        return true
+      }),
+    [permissions, assignedRoleNames]
+  )
+
+  useEffect(() => {
+    if (profileOpen) return
+    if (sidebarModules.length === 0) {
+      if (activeModuleId !== null) {
+        setActiveModuleId(null)
+      }
+      return
     }
-
-    return modules
-  }, [permissions.canViewPlatformAdmin])
+    if (!activeModuleId || !sidebarModules.some((module) => module.id === activeModuleId)) {
+      const nextId = sidebarModules[0].id
+      if (nextId !== activeModuleId) {
+        setActiveModuleId(nextId)
+      }
+    }
+  }, [sidebarModules, activeModuleId, profileOpen])
 
   const handleLogout = () => {
     setSession({ authenticatedUserId: null })
@@ -338,6 +491,9 @@ function App() {
     setActiveModuleId('platform-admin')
     setActiveSectionId('users')
     setAuthError('You have been signed out. Sign in again to continue.')
+    setAppContext({ campaignId: '', characterId: '' })
+    setSidebarMobileOpen(false)
+    setSidebarHovered(false)
   }
 
   const handleAuthenticate = ({ identifier, password }) => {
@@ -366,8 +522,32 @@ function App() {
     setActiveSectionId('users')
     setProfileOpen(false)
     setAuthError(null)
+    setSidebarMobileOpen(false)
     return true
   }
+
+  const handleSidebarMouseEnter = () => {
+    if (!sidebarPinned && !sidebarMobileOpen) {
+      setSidebarHovered(true)
+    }
+  }
+
+  const handleSidebarMouseLeave = () => {
+    if (!sidebarPinned) {
+      setSidebarHovered(false)
+    }
+  }
+
+  const isSidebarCollapsed = !sidebarPinned && !sidebarMobileOpen && !sidebarHovered
+  const sidebarClassName = [
+    'shell-sidebar',
+    isSidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded',
+    sidebarPinned ? 'sidebar-pinned' : 'sidebar-floating',
+    sidebarMobileOpen ? 'sidebar-mobile-open' : ''
+  ]
+    .filter(Boolean)
+    .join(' ')
+  const showSidebarBackdrop = sidebarMobileOpen
 
   const updateUsersWithRoleRemoval = (roleId) => {
     setUsers((prev) =>
@@ -489,6 +669,79 @@ function App() {
 
   const handleDeleteCampaign = (campaignId) => {
     setCampaigns((prev) => prev.filter((campaign) => campaign.id !== campaignId))
+    setCharacters((prev) =>
+      prev.map((character) =>
+        character.campaignId === campaignId ? { ...character, campaignId: '' } : character
+      )
+    )
+    setAppContext((prev) =>
+      prev.campaignId === campaignId ? { ...prev, campaignId: '' } : prev
+    )
+  }
+
+  const handleSaveWorld = (payload, mode) => {
+    if (mode === 'edit') {
+      setWorlds((prev) =>
+        prev.map((world) =>
+          world.id === payload.id
+            ? { ...world, ...payload, updatedAt: new Date().toISOString() }
+            : world
+        )
+      )
+      return
+    }
+
+    setWorlds((prev) => [
+      ...prev,
+      {
+        ...payload,
+        id: newId('world'),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ])
+  }
+
+  const handleDeleteWorld = (worldId) => {
+    setWorlds((prev) => prev.filter((world) => world.id !== worldId))
+  }
+
+  const handleSaveCharacter = (payload, mode) => {
+    const nextLevel = Number(payload.level) || 1
+    if (mode === 'edit') {
+      setCharacters((prev) =>
+        prev.map((character) =>
+          character.id === payload.id
+            ? {
+                ...character,
+                ...payload,
+                ownerId: payload.ownerId || character.ownerId,
+                level: nextLevel,
+                updatedAt: new Date().toISOString()
+              }
+            : character
+        )
+      )
+      return
+    }
+
+    setCharacters((prev) => [
+      ...prev,
+      {
+        ...payload,
+        id: newId('character'),
+        ownerId: payload.ownerId || authenticatedUserId,
+        level: nextLevel,
+        updatedAt: new Date().toISOString()
+      }
+    ])
+  }
+
+  const handleDeleteCharacter = (characterId) => {
+    setCharacters((prev) => prev.filter((character) => character.id !== characterId))
+    setAppContext((prev) =>
+      prev.characterId === characterId ? { ...prev, characterId: '' } : prev
+    )
   }
 
   if (!authenticatedUserId) {
@@ -504,10 +757,24 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside className="shell-sidebar">
+      <aside
+        className={sidebarClassName}
+        onMouseEnter={handleSidebarMouseEnter}
+        onMouseLeave={handleSidebarMouseLeave}
+      >
         <div className="sidebar-header">
-          <div className="brand-mark">DnD Platform</div>
-          <p className="brand-subtitle">Orchestrate adventures with confidence.</p>
+          <div>
+            <div className="brand-mark">DnD Platform</div>
+            <p className="brand-subtitle">Orchestrate adventures with confidence.</p>
+          </div>
+          <button
+            type="button"
+            className="ghost sidebar-close"
+            onClick={() => setSidebarMobileOpen(false)}
+            aria-label="Close navigation"
+          >
+            ×
+          </button>
         </div>
         <nav className="sidebar-nav">
           {sidebarModules.length === 0 && <p className="sidebar-empty">No modules available for your role.</p>}
@@ -518,42 +785,116 @@ function App() {
                 key={module.id}
                 className={`sidebar-link${isActive ? ' active' : ''}`}
                 type="button"
+                aria-current={isActive ? 'page' : undefined}
+                aria-label={module.label}
+                title={isSidebarCollapsed ? module.label : undefined}
                 onClick={() => {
                   setProfileOpen(false)
                   setActiveModuleId(module.id)
+                  setSidebarMobileOpen(false)
                 }}
               >
-                <span>{module.label}</span>
+                <span className="sidebar-icon" aria-hidden="true">
+                  {module.icon || '•'}
+                </span>
+                <span className="sidebar-label">{module.label}</span>
               </button>
             )
           })}
         </nav>
+        <div className="sidebar-footer">
+          <button
+            type="button"
+            className={`ghost sidebar-pin-toggle${sidebarPinned ? ' active' : ''}`}
+            onClick={() => setSidebarPinned((prev) => !prev)}
+            aria-pressed={sidebarPinned}
+          >
+            {sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+          </button>
+        </div>
       </aside>
+      {showSidebarBackdrop && (
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          onClick={() => setSidebarMobileOpen(false)}
+          aria-label="Close navigation"
+        />
+      )}
 
       <div className="shell-main">
         <header className="app-header">
-          <div>
-            <nav className="breadcrumbs" aria-label="Breadcrumb">
-              {breadcrumbs.map((item, index) => (
-                <span key={item} className="breadcrumb-item">
-                  {item}
-                  {index < breadcrumbs.length - 1 && <span aria-hidden="true">›</span>}
-                </span>
-              ))}
-            </nav>
-            <h1 className="module-title">{breadcrumbs[breadcrumbs.length - 1]}</h1>
-            {moduleDescription && <p className="module-description">{moduleDescription}</p>}
+          <div className="header-primary">
+            <button
+              type="button"
+              className="sidebar-trigger"
+              onClick={() => setSidebarMobileOpen(true)}
+              aria-label="Open navigation"
+              aria-expanded={sidebarMobileOpen}
+            >
+              ☰
+            </button>
+            <div>
+              <nav className="breadcrumbs" aria-label="Breadcrumb">
+                {breadcrumbs.map((item, index) => (
+                  <span key={item} className="breadcrumb-item">
+                    {item}
+                    {index < breadcrumbs.length - 1 && <span aria-hidden="true">›</span>}
+                  </span>
+                ))}
+              </nav>
+              <h1 className="module-title">{breadcrumbs[breadcrumbs.length - 1]}</h1>
+              {moduleDescription && <p className="module-description">{moduleDescription}</p>}
+            </div>
           </div>
-
-          <button
-            type="button"
-            className="current-user-button"
-            onClick={() => setProfileOpen(true)}
-            aria-label="Open my profile"
-          >
-            <span className="user-name">{currentUserDisplayName}</span>
-            <span className="user-role">{currentUserRoleNames.join(', ')}</span>
-          </button>
+          <div className="header-actions">
+            <div className="context-switchers" aria-label="Active context selection">
+              <label className="context-select">
+                <span>Campaign</span>
+                <select
+                  value={appContext.campaignId}
+                  onChange={(event) =>
+                    setAppContext((prev) => ({ ...prev, campaignId: event.target.value }))
+                  }
+                >
+                  <option value="">No campaign selected</option>
+                  {accessibleCampaigns.map((campaign) => (
+                    <option key={campaign.id} value={campaign.id}>
+                      {campaign.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="context-select">
+                <span>Character</span>
+                <select
+                  value={appContext.characterId}
+                  onChange={(event) =>
+                    setAppContext((prev) => ({ ...prev, characterId: event.target.value }))
+                  }
+                >
+                  <option value="">No character selected</option>
+                  {myCharacters.map((character) => (
+                    <option key={character.id} value={character.id}>
+                      {character.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button
+              type="button"
+              className="current-user-button"
+              onClick={() => {
+                setProfileOpen(true)
+                setSidebarMobileOpen(false)
+              }}
+              aria-label="Open my profile"
+            >
+              <span className="user-name">{currentUserDisplayName}</span>
+              <span className="user-role">{currentUserRoleNames.join(', ')}</span>
+            </button>
+          </div>
         </header>
 
         <main className="module-content">
@@ -572,34 +913,919 @@ function App() {
             />
           ) : (
             <>
-              {!permissions.canViewPlatformAdmin && (
-                <div className="empty-state">
-                  <h2>Access restricted</h2>
-                  <p>You currently do not have permission to administer the platform.</p>
-                </div>
+              {activeModuleId === 'world' && (
+                <WorldPage
+                  worlds={worlds}
+                  onSaveWorld={handleSaveWorld}
+                  onDeleteWorld={handleDeleteWorld}
+                />
               )}
 
-              {permissions.canViewPlatformAdmin && activeModuleId === 'platform-admin' && (
-                <PlatformAdmin
-                  activeSectionId={activeSectionId}
-                  onSectionChange={setActiveSectionId}
-                  users={users}
-                  roles={roles}
+              {activeModuleId === 'campaigns' && (
+                <CampaignsPage
                   campaigns={campaigns}
-                  permissions={permissions}
-                  onSaveUser={handleSaveUser}
-                  onDeleteUser={handleDeleteUser}
-                  onSaveRole={handleSaveRole}
-                  onDeleteRole={handleDeleteRole}
+                  accessibleCampaigns={accessibleCampaigns}
                   onSaveCampaign={handleSaveCampaign}
                   onDeleteCampaign={handleDeleteCampaign}
+                  currentUserId={authenticatedUserId}
+                  roles={roles}
+                  users={users}
+                  isSystemAdmin={isSystemAdmin}
+                  onSelectCampaign={(campaignId) =>
+                    setAppContext((prev) => ({ ...prev, campaignId }))
+                  }
+                  currentCampaignId={appContext.campaignId}
                 />
+              )}
+
+              {activeModuleId === 'characters' && (
+                <CharactersPage
+                  characters={characters}
+                  campaigns={campaigns}
+                  currentUserId={authenticatedUserId}
+                  onSaveCharacter={handleSaveCharacter}
+                  onDeleteCharacter={handleDeleteCharacter}
+                  appCampaignId={appContext.campaignId}
+                  accessibleCampaigns={accessibleCampaigns}
+                  currentCharacterId={appContext.characterId}
+                  onSelectCharacter={(characterId) =>
+                    setAppContext((prev) => ({ ...prev, characterId }))
+                  }
+                  onSelectCampaign={(campaignId) =>
+                    setAppContext((prev) => ({ ...prev, campaignId }))
+                  }
+                />
+              )}
+
+              {activeModuleId === 'platform-admin' && (
+                permissions.canViewPlatformAdmin ? (
+                  <PlatformAdmin
+                    activeSectionId={activeSectionId}
+                    onSectionChange={setActiveSectionId}
+                    users={users}
+                    roles={roles}
+                    campaigns={campaigns}
+                    permissions={permissions}
+                    onSaveUser={handleSaveUser}
+                    onDeleteUser={handleDeleteUser}
+                    onSaveRole={handleSaveRole}
+                    onDeleteRole={handleDeleteRole}
+                    onSaveCampaign={handleSaveCampaign}
+                    onDeleteCampaign={handleDeleteCampaign}
+                  />
+                ) : (
+                  <div className="empty-state">
+                    <h2>Access restricted</h2>
+                    <p>You currently do not have permission to administer the platform.</p>
+                  </div>
+                )
               )}
             </>
           )}
         </main>
       </div>
     </div>
+  )
+}
+
+function WorldPage({ worlds, onSaveWorld, onDeleteWorld }) {
+  const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
+  const [form, setForm] = useState({ name: '', tagline: '', description: '' })
+  const [confirmState, setConfirmState] = useState({ open: false, record: null })
+
+  const sortedWorlds = useMemo(() => {
+    return [...worlds].sort((a, b) => {
+      const getTime = (value) => (value ? new Date(value).getTime() : 0)
+      return getTime(b.updatedAt || b.createdAt) - getTime(a.updatedAt || a.createdAt)
+    })
+  }, [worlds])
+
+  const openCreate = () => {
+    setForm({ name: '', tagline: '', description: '' })
+    setEditor({ open: true, mode: 'create', record: null })
+  }
+
+  const openEdit = (record) => {
+    setForm({
+      name: record.name || '',
+      tagline: record.tagline || '',
+      description: record.description || ''
+    })
+    setEditor({ open: true, mode: 'edit', record })
+  }
+
+  const closeEditor = () => {
+    setEditor((prev) => ({ ...prev, open: false }))
+    setForm({ name: '', tagline: '', description: '' })
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    const payload = {
+      name: form.name.trim(),
+      tagline: form.tagline.trim(),
+      description: form.description.trim()
+    }
+
+    if (!payload.name) {
+      return
+    }
+
+    if (editor.mode === 'edit' && editor.record) {
+      onSaveWorld({ ...payload, id: editor.record.id }, 'edit')
+    } else {
+      onSaveWorld(payload, 'create')
+    }
+
+    closeEditor()
+  }
+
+  const requestDelete = (record) => {
+    setConfirmState({ open: true, record })
+  }
+
+  const closeConfirm = () => setConfirmState({ open: false, record: null })
+
+  const handleConfirmDelete = () => {
+    if (confirmState.record) {
+      onDeleteWorld(confirmState.record.id)
+    }
+    closeConfirm()
+  }
+
+  const formId = 'world-record-form'
+
+  const formatTimestamp = (value) =>
+    value ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium' }) : '—'
+
+  return (
+    <section className="world-page">
+      <header className="section-header">
+        <div>
+          <h2>Worlds</h2>
+          <p className="section-subtitle">
+            Craft immersive settings that your campaigns can explore and revisit.
+          </p>
+        </div>
+        <button type="button" className="primary" onClick={openCreate}>
+          New world
+        </button>
+      </header>
+
+      {sortedWorlds.length === 0 ? (
+        <div className="empty-state">
+          <h3>No worlds yet</h3>
+          <p>Introduce your first realm to anchor campaigns, regions, and lore.</p>
+        </div>
+      ) : (
+        <div className="world-grid">
+          {sortedWorlds.map((world) => (
+            <article key={world.id} className="world-card">
+              <header className="world-card-header">
+                <div>
+                  <h3>{world.name}</h3>
+                  {world.tagline && <p className="world-tagline">{world.tagline}</p>}
+                </div>
+                <div className="card-actions">
+                  <button type="button" className="ghost" onClick={() => openEdit(world)}>
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost destructive"
+                    onClick={() => requestDelete(world)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </header>
+              {world.description && <p className="world-description">{world.description}</p>}
+              <dl className="card-meta">
+                <div>
+                  <dt>Created</dt>
+                  <dd>{formatTimestamp(world.createdAt)}</dd>
+                </div>
+                <div>
+                  <dt>Last updated</dt>
+                  <dd>{formatTimestamp(world.updatedAt)}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      )}
+
+      <RecordDrawer
+        open={editor.open}
+        title={editor.mode === 'edit' ? 'Edit world' : 'Create world'}
+        onClose={closeEditor}
+        actions={
+          <>
+            <button type="button" className="ghost" onClick={closeEditor}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" form={formId}>
+              {editor.mode === 'edit' ? 'Save' : 'Submit'}
+            </button>
+          </>
+        }
+      >
+        <form id={formId} className="drawer-form" onSubmit={handleSubmit}>
+          <label>
+            <span>World name</span>
+            <input
+              required
+              type="text"
+              value={form.name}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+            />
+          </label>
+
+          <label>
+            <span>Tagline</span>
+            <input
+              type="text"
+              placeholder="Optional flavour text"
+              value={form.tagline}
+              onChange={(event) => setForm((prev) => ({ ...prev, tagline: event.target.value }))}
+            />
+          </label>
+
+          <label>
+            <span>Description</span>
+            <textarea
+              rows={5}
+              value={form.description}
+              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+            />
+          </label>
+        </form>
+      </RecordDrawer>
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title="Delete world"
+        description="Are you sure you want to remove this world? Campaigns referencing it will lose their association."
+        detail={confirmState.record?.name}
+        confirmLabel="Delete world"
+        onCancel={closeConfirm}
+        onConfirm={handleConfirmDelete}
+      />
+    </section>
+  )
+}
+
+function CampaignsPage({
+  campaigns,
+  accessibleCampaigns,
+  onSaveCampaign,
+  onDeleteCampaign,
+  currentUserId,
+  roles,
+  users,
+  isSystemAdmin,
+  onSelectCampaign,
+  currentCampaignId
+}) {
+  const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
+  const [form, setForm] = useState({ name: '', status: 'Planning', summary: '', assignments: [] })
+  const [confirmState, setConfirmState] = useState({ open: false, record: null })
+
+  const dungeonMasterRoleId = useMemo(
+    () => roles.find((role) => role.name === 'Dungeon Master')?.id || '',
+    [roles]
+  )
+
+  const roleOptions = useMemo(
+    () => roles.map((role) => ({ id: role.id, name: role.name })),
+    [roles]
+  )
+
+  const userOptions = useMemo(
+    () =>
+      users.map((user) => ({
+        id: user.id,
+        name: user.displayName || user.username || 'Unassigned'
+      })),
+    [users]
+  )
+
+  const sortedCampaigns = useMemo(() => {
+    return [...accessibleCampaigns].sort((a, b) => {
+      const getTime = (value) => (value ? new Date(value).getTime() : 0)
+      return getTime(b.updatedAt) - getTime(a.updatedAt)
+    })
+  }, [accessibleCampaigns])
+
+  const closeEditor = () => {
+    setEditor((prev) => ({ ...prev, open: false }))
+    setForm({ name: '', status: 'Planning', summary: '', assignments: [] })
+  }
+
+  const openCreate = () => {
+    const defaultAssignments = []
+    if (currentUserId && dungeonMasterRoleId) {
+      defaultAssignments.push({
+        id: newId('assignment'),
+        userId: currentUserId,
+        roleId: dungeonMasterRoleId
+      })
+    }
+    setForm({ name: '', status: 'Planning', summary: '', assignments: defaultAssignments })
+    setEditor({ open: true, mode: 'create', record: null })
+  }
+
+  const openEdit = (record) => {
+    setForm({
+      name: record.name || '',
+      status: record.status || 'Planning',
+      summary: record.summary || '',
+      assignments: Array.isArray(record.assignments)
+        ? record.assignments.map((assignment) => ({ ...assignment }))
+        : []
+    })
+    setEditor({ open: true, mode: 'edit', record })
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    const payload = {
+      name: form.name.trim(),
+      status: form.status || 'Planning',
+      summary: form.summary.trim(),
+      assignments: form.assignments.filter((assignment) => assignment.userId && assignment.roleId)
+    }
+
+    if (!payload.name) {
+      return
+    }
+
+    if (editor.mode === 'edit' && editor.record) {
+      onSaveCampaign({ ...payload, id: editor.record.id }, 'edit')
+    } else {
+      onSaveCampaign(payload, 'create')
+    }
+
+    closeEditor()
+  }
+
+  const handleAddAssignment = () => {
+    const defaultUser = currentUserId || (userOptions[0]?.id ?? '')
+    const defaultRole = dungeonMasterRoleId || (roleOptions[0]?.id ?? '')
+    setForm((prev) => ({
+      ...prev,
+      assignments: [
+        ...prev.assignments,
+        { id: newId('assignment'), userId: defaultUser, roleId: defaultRole }
+      ]
+    }))
+  }
+
+  const handleUpdateAssignment = (assignmentId, key, value) => {
+    setForm((prev) => ({
+      ...prev,
+      assignments: prev.assignments.map((assignment) =>
+        assignment.id === assignmentId ? { ...assignment, [key]: value } : assignment
+      )
+    }))
+  }
+
+  const handleRemoveAssignment = (assignmentId) => {
+    setForm((prev) => ({
+      ...prev,
+      assignments: prev.assignments.filter((assignment) => assignment.id !== assignmentId)
+    }))
+  }
+
+  const closeConfirm = () => setConfirmState({ open: false, record: null })
+
+  const requestDelete = (record) => {
+    setConfirmState({ open: true, record })
+  }
+
+  const handleConfirmDelete = () => {
+    if (confirmState.record) {
+      onDeleteCampaign(confirmState.record.id)
+    }
+    closeConfirm()
+  }
+
+  const userCanManage = (campaign) => {
+    if (isSystemAdmin) return true
+    if (!currentUserId) return false
+    if (!Array.isArray(campaign.assignments)) return false
+
+    return campaign.assignments.some((assignment) => {
+      if (assignment.userId !== currentUserId) return false
+      const role = roles.find((roleItem) => roleItem.id === assignment.roleId)
+      return role?.name === 'Dungeon Master'
+    })
+  }
+
+  const formId = 'campaign-record-form'
+
+  const describeStatus = (status) => {
+    if (!status) return 'Unknown'
+    return status.charAt(0).toUpperCase() + status.slice(1)
+  }
+
+  const getUserName = (userId) => userOptions.find((option) => option.id === userId)?.name || 'Unknown user'
+  const getRoleName = (roleId) => roleOptions.find((option) => option.id === roleId)?.name || 'Unknown role'
+
+  return (
+    <section className="campaigns-page">
+      <header className="section-header">
+        <div>
+          <h2>Campaigns</h2>
+          <p className="section-subtitle">
+            View the adventures you belong to and keep your party assignments current.
+          </p>
+        </div>
+        <button type="button" className="primary" onClick={openCreate}>
+          New campaign
+        </button>
+      </header>
+
+      {sortedCampaigns.length === 0 ? (
+        <div className="empty-state">
+          <h3>No campaigns yet</h3>
+          <p>Start a campaign to organise quests, players, and shared progress.</p>
+        </div>
+      ) : (
+        <div className="campaign-grid">
+          {sortedCampaigns.map((campaign) => {
+            const manageAllowed = userCanManage(campaign)
+            const isCurrent = currentCampaignId === campaign.id
+            return (
+              <article key={campaign.id} className="campaign-card">
+                <header className="campaign-card-header">
+                  <div>
+                    <h3>{campaign.name}</h3>
+                    <span className={`status-pill status-${(campaign.status || 'unknown').toLowerCase()}`}>
+                      {describeStatus(campaign.status)}
+                    </span>
+                  </div>
+                  <div className="card-actions">
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => onSelectCampaign?.(campaign.id)}
+                      disabled={isCurrent}
+                    >
+                      {isCurrent ? 'Active' : 'Set active'}
+                    </button>
+                    {manageAllowed && (
+                      <>
+                        <button type="button" className="ghost" onClick={() => openEdit(campaign)}>
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost destructive"
+                          onClick={() => requestDelete(campaign)}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </header>
+
+                {campaign.summary && <p className="campaign-summary">{campaign.summary}</p>}
+
+                <div className="campaign-party">
+                  <h4>Party</h4>
+                  {Array.isArray(campaign.assignments) && campaign.assignments.length > 0 ? (
+                    <ul>
+                      {campaign.assignments.map((assignment) => (
+                        <li key={assignment.id}>
+                          <span className="party-member">{getUserName(assignment.userId)}</span>
+                          <span className="party-role">{getRoleName(assignment.roleId)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="helper-text">No players linked yet.</p>
+                  )}
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
+
+      <RecordDrawer
+        open={editor.open}
+        title={editor.mode === 'edit' ? 'Edit campaign' : 'Create campaign'}
+        onClose={closeEditor}
+        actions={
+          <>
+            <button type="button" className="ghost" onClick={closeEditor}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" form={formId}>
+              {editor.mode === 'edit' ? 'Save' : 'Submit'}
+            </button>
+          </>
+        }
+      >
+        <form id={formId} className="drawer-form" onSubmit={handleSubmit}>
+          <label>
+            <span>Campaign name</span>
+            <input
+              required
+              type="text"
+              value={form.name}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+            />
+          </label>
+
+          <label>
+            <span>Status</span>
+            <select
+              value={form.status}
+              onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value }))}
+            >
+              <option value="Planning">Planning</option>
+              <option value="Active">Active</option>
+              <option value="On Hold">On Hold</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Summary</span>
+            <textarea
+              rows={4}
+              value={form.summary}
+              onChange={(event) => setForm((prev) => ({ ...prev, summary: event.target.value }))}
+            />
+          </label>
+
+          <div className="drawer-subsection">
+            <div className="drawer-subsection-header">
+              <h4>Assignments</h4>
+              <button
+                type="button"
+                className="ghost"
+                onClick={handleAddAssignment}
+                disabled={userOptions.length === 0 || roleOptions.length === 0}
+              >
+                Add assignment
+              </button>
+            </div>
+
+            {form.assignments.length === 0 && (
+              <p className="helper-text">Invite players and storytellers to this campaign.</p>
+            )}
+
+            {form.assignments.map((assignment) => (
+              <div key={assignment.id} className="assignment-row">
+                <label>
+                  <span>User</span>
+                  <select
+                    value={assignment.userId}
+                    onChange={(event) =>
+                      handleUpdateAssignment(assignment.id, 'userId', event.target.value)
+                    }
+                  >
+                    <option value="">Select user</option>
+                    {userOptions.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  <span>Role</span>
+                  <select
+                    value={assignment.roleId}
+                    onChange={(event) =>
+                      handleUpdateAssignment(assignment.id, 'roleId', event.target.value)
+                    }
+                  >
+                    <option value="">Select role</option>
+                    {roleOptions.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => handleRemoveAssignment(assignment.id)}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        </form>
+      </RecordDrawer>
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title="Delete campaign"
+        description="Deleting a campaign removes party assignments and progress snapshots."
+        detail={confirmState.record?.name}
+        confirmLabel="Delete campaign"
+        onCancel={closeConfirm}
+        onConfirm={handleConfirmDelete}
+      />
+    </section>
+  )
+}
+
+function CharactersPage({
+  characters,
+  campaigns,
+  currentUserId,
+  onSaveCharacter,
+  onDeleteCharacter,
+  appCampaignId,
+  accessibleCampaigns,
+  currentCharacterId,
+  onSelectCharacter,
+  onSelectCampaign
+}) {
+  const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
+  const [form, setForm] = useState({
+    name: '',
+    ancestry: '',
+    className: '',
+    level: 1,
+    campaignId: appCampaignId || ''
+  })
+  const [confirmState, setConfirmState] = useState({ open: false, record: null })
+
+  const myCharacters = useMemo(
+    () => characters.filter((character) => character.ownerId === currentUserId),
+    [characters, currentUserId]
+  )
+
+  const campaignLookup = useMemo(() => {
+    const map = new Map()
+    campaigns.forEach((campaign) => {
+      map.set(campaign.id, campaign.name)
+    })
+    return map
+  }, [campaigns])
+
+  const campaignOptions = useMemo(() => {
+    const seen = new Set()
+    const options = []
+
+    accessibleCampaigns.forEach((campaign) => {
+      if (campaign && !seen.has(campaign.id)) {
+        seen.add(campaign.id)
+        options.push({ id: campaign.id, name: campaign.name })
+      }
+    })
+
+    myCharacters.forEach((character) => {
+      if (character.campaignId && !seen.has(character.campaignId)) {
+        seen.add(character.campaignId)
+        options.push({
+          id: character.campaignId,
+          name: campaignLookup.get(character.campaignId) || 'Current campaign'
+        })
+      }
+    })
+
+    return options
+  }, [accessibleCampaigns, myCharacters, campaignLookup])
+
+  useEffect(() => {
+    if (!editor.open) {
+      setForm((prev) => ({ ...prev, campaignId: appCampaignId || '' }))
+    }
+  }, [appCampaignId, editor.open])
+
+  const closeEditor = () => {
+    setEditor((prev) => ({ ...prev, open: false }))
+    setForm({ name: '', ancestry: '', className: '', level: 1, campaignId: appCampaignId || '' })
+  }
+
+  const openCreate = () => {
+    const defaultCampaign = appCampaignId || (accessibleCampaigns[0]?.id ?? '')
+    setForm({ name: '', ancestry: '', className: '', level: 1, campaignId: defaultCampaign })
+    setEditor({ open: true, mode: 'create', record: null })
+  }
+
+  const openEdit = (record) => {
+    setForm({
+      name: record.name || '',
+      ancestry: record.ancestry || '',
+      className: record.className || '',
+      level: record.level || 1,
+      campaignId: record.campaignId || ''
+    })
+    setEditor({ open: true, mode: 'edit', record })
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    const payload = {
+      name: form.name.trim(),
+      ancestry: form.ancestry.trim(),
+      className: form.className.trim(),
+      level: Number(form.level) || 1,
+      campaignId: form.campaignId || ''
+    }
+
+    if (!payload.name) {
+      return
+    }
+
+    if (editor.mode === 'edit' && editor.record) {
+      onSaveCharacter({ ...payload, id: editor.record.id, ownerId: editor.record.ownerId }, 'edit')
+    } else {
+      onSaveCharacter({ ...payload, ownerId: currentUserId }, 'create')
+    }
+
+    closeEditor()
+  }
+
+  const requestDelete = (record) => setConfirmState({ open: true, record })
+  const closeConfirm = () => setConfirmState({ open: false, record: null })
+  const handleConfirmDelete = () => {
+    if (confirmState.record) {
+      onDeleteCharacter(confirmState.record.id)
+    }
+    closeConfirm()
+  }
+
+  const formId = 'character-record-form'
+
+  const handleSetActive = (character) => {
+    onSelectCharacter?.(character.id)
+    if (character.campaignId) {
+      onSelectCampaign?.(character.campaignId)
+    }
+  }
+
+  return (
+    <section className="characters-page">
+      <header className="section-header">
+        <div>
+          <h2>My characters</h2>
+          <p className="section-subtitle">
+            Keep your alter egos ready for the next session and align them with the right campaign.
+          </p>
+        </div>
+        <button type="button" className="primary" onClick={openCreate}>
+          New character
+        </button>
+      </header>
+
+      {myCharacters.length === 0 ? (
+        <div className="empty-state">
+          <h3>No characters yet</h3>
+          <p>Create a hero or sidekick to appear in your current adventures.</p>
+        </div>
+      ) : (
+        <div className="character-grid">
+          {myCharacters.map((character) => {
+            const isCurrent = currentCharacterId === character.id
+            const campaignName = character.campaignId
+              ? campaignLookup.get(character.campaignId)
+              : 'No campaign'
+
+            return (
+              <article key={character.id} className="character-card">
+                <header className="character-card-header">
+                  <div>
+                    <h3>{character.name}</h3>
+                    <p className="character-subtitle">
+                      {character.className || 'Unassigned class'} · Level {character.level || 1}
+                    </p>
+                  </div>
+                  <div className="card-actions">
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => handleSetActive(character)}
+                      disabled={isCurrent}
+                    >
+                      {isCurrent ? 'Active' : 'Set active'}
+                    </button>
+                    <button type="button" className="ghost" onClick={() => openEdit(character)}>
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost destructive"
+                      onClick={() => requestDelete(character)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </header>
+
+                <dl className="character-details">
+                  <div>
+                    <dt>Ancestry</dt>
+                    <dd>{character.ancestry || 'Unknown'}</dd>
+                  </div>
+                  <div>
+                    <dt>Campaign</dt>
+                    <dd>{campaignName || 'No campaign'}</dd>
+                  </div>
+                </dl>
+              </article>
+            )
+          })}
+        </div>
+      )}
+
+      <RecordDrawer
+        open={editor.open}
+        title={editor.mode === 'edit' ? 'Edit character' : 'Create character'}
+        onClose={closeEditor}
+        actions={
+          <>
+            <button type="button" className="ghost" onClick={closeEditor}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" form={formId}>
+              {editor.mode === 'edit' ? 'Save' : 'Submit'}
+            </button>
+          </>
+        }
+      >
+        <form id={formId} className="drawer-form" onSubmit={handleSubmit}>
+          <label>
+            <span>Character name</span>
+            <input
+              required
+              type="text"
+              value={form.name}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+            />
+          </label>
+
+          <label>
+            <span>Ancestry</span>
+            <input
+              type="text"
+              value={form.ancestry}
+              onChange={(event) => setForm((prev) => ({ ...prev, ancestry: event.target.value }))}
+            />
+          </label>
+
+          <label>
+            <span>Class</span>
+            <input
+              type="text"
+              value={form.className}
+              onChange={(event) => setForm((prev) => ({ ...prev, className: event.target.value }))}
+            />
+          </label>
+
+          <label>
+            <span>Level</span>
+            <input
+              type="number"
+              min="1"
+              value={form.level}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, level: Number(event.target.value) || 1 }))
+              }
+            />
+          </label>
+
+          <label>
+            <span>Campaign</span>
+            <select
+              value={form.campaignId}
+              onChange={(event) => setForm((prev) => ({ ...prev, campaignId: event.target.value }))}
+            >
+              <option value="">No campaign</option>
+              {campaignOptions.map((campaign) => (
+                <option key={campaign.id} value={campaign.id}>
+                  {campaign.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </form>
+      </RecordDrawer>
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title="Delete character"
+        description="This will remove the character from your roster. This action cannot be undone."
+        detail={confirmState.record?.name}
+        confirmLabel="Delete character"
+        onCancel={closeConfirm}
+        onConfirm={handleConfirmDelete}
+      />
+    </section>
   )
 }
 
@@ -620,6 +1846,10 @@ function PlatformAdmin({
   const [userDrawer, setUserDrawer] = useState({ open: false, mode: 'create', record: null })
   const [roleDrawer, setRoleDrawer] = useState({ open: false, mode: 'create', record: null })
   const [campaignDrawer, setCampaignDrawer] = useState({ open: false, mode: 'create', record: null })
+
+  const userFormId = 'user-record-form'
+  const roleFormId = 'role-record-form'
+  const campaignFormId = 'campaign-record-form'
 
   const [userForm, setUserForm] = useState({
     displayName: '',
@@ -923,8 +2153,18 @@ function PlatformAdmin({
         open={userDrawer.open}
         title={userDrawer.mode === 'edit' ? 'Edit user' : 'Invite user'}
         onClose={closeUserDrawer}
+        actions={
+          <>
+            <button type="button" className="ghost" onClick={closeUserDrawer}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" form={userFormId}>
+              {userDrawer.mode === 'edit' ? 'Save' : 'Submit'}
+            </button>
+          </>
+        }
       >
-        <form className="drawer-form" onSubmit={handleSubmitUser}>
+        <form id={userFormId} className="drawer-form" onSubmit={handleSubmitUser}>
           <label>
             <span>Display name</span>
             <input
@@ -1003,15 +2243,6 @@ function PlatformAdmin({
               )
             })}
           </fieldset>
-
-          <div className="drawer-actions">
-            <button type="button" className="ghost" onClick={closeUserDrawer}>
-              Cancel
-            </button>
-            <button type="submit" className="primary">
-              {userDrawer.mode === 'edit' ? 'Save changes' : 'Invite user'}
-            </button>
-          </div>
         </form>
       </RecordDrawer>
 
@@ -1019,8 +2250,18 @@ function PlatformAdmin({
         open={roleDrawer.open}
         title={roleDrawer.mode === 'edit' ? 'Edit role' : 'Create role'}
         onClose={closeRoleDrawer}
+        actions={
+          <>
+            <button type="button" className="ghost" onClick={closeRoleDrawer}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" form={roleFormId}>
+              {roleDrawer.mode === 'edit' ? 'Save' : 'Submit'}
+            </button>
+          </>
+        }
       >
-        <form className="drawer-form" onSubmit={handleSubmitRole}>
+        <form id={roleFormId} className="drawer-form" onSubmit={handleSubmitRole}>
           <label>
             <span>Role name</span>
             <input
@@ -1039,15 +2280,6 @@ function PlatformAdmin({
               onChange={(event) => setRoleForm((prev) => ({ ...prev, description: event.target.value }))}
             />
           </label>
-
-          <div className="drawer-actions">
-            <button type="button" className="ghost" onClick={closeRoleDrawer}>
-              Cancel
-            </button>
-            <button type="submit" className="primary">
-              {roleDrawer.mode === 'edit' ? 'Save changes' : 'Create role'}
-            </button>
-          </div>
         </form>
       </RecordDrawer>
 
@@ -1055,8 +2287,18 @@ function PlatformAdmin({
         open={campaignDrawer.open}
         title={campaignDrawer.mode === 'edit' ? 'Edit campaign' : 'Create campaign'}
         onClose={closeCampaignDrawer}
+        actions={
+          <>
+            <button type="button" className="ghost" onClick={closeCampaignDrawer}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" form={campaignFormId}>
+              {campaignDrawer.mode === 'edit' ? 'Save' : 'Submit'}
+            </button>
+          </>
+        }
       >
-        <form className="drawer-form" onSubmit={handleSubmitCampaign}>
+        <form id={campaignFormId} className="drawer-form" onSubmit={handleSubmitCampaign}>
           <label>
             <span>Campaign name</span>
             <input
@@ -1149,15 +2391,6 @@ function PlatformAdmin({
                 </button>
               </div>
             ))}
-          </div>
-
-          <div className="drawer-actions">
-            <button type="button" className="ghost" onClick={closeCampaignDrawer}>
-              Cancel
-            </button>
-            <button type="submit" className="primary">
-              {campaignDrawer.mode === 'edit' ? 'Save changes' : 'Create campaign'}
-            </button>
           </div>
         </form>
       </RecordDrawer>
@@ -1617,7 +2850,7 @@ function ConfirmDialog({ open, title, description, detail, confirmLabel, onCance
   )
 }
 
-function RecordDrawer({ open, title, onClose, children }) {
+function RecordDrawer({ open, title, onClose, actions, children }) {
   useEffect(() => {
     if (!open) return
 
@@ -1633,15 +2866,23 @@ function RecordDrawer({ open, title, onClose, children }) {
 
   if (!open) return null
 
+  const headingId = useMemo(() => newId('drawer-title'), [])
+
   return (
     <div className="drawer-layer">
       <div className="drawer-overlay" onClick={onClose} />
-      <aside className="record-drawer" role="dialog" aria-modal="true">
+      <aside className="record-drawer" role="dialog" aria-modal="true" aria-labelledby={headingId}>
         <header className="drawer-header">
-          <h3>{title}</h3>
-          <button type="button" className="ghost" onClick={onClose}>
-            Close
-          </button>
+          <div className="drawer-title">
+            <h3 id={headingId}>{title}</h3>
+          </div>
+          <div className="drawer-header-actions">
+            {actions ?? (
+              <button type="button" className="ghost" onClick={onClose}>
+                Close
+              </button>
+            )}
+          </div>
         </header>
         <div className="drawer-body">{children}</div>
       </aside>
