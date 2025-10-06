@@ -87,6 +87,31 @@ const seededCampaigns = [
   }
 ]
 
+const accountProfiles = {
+  'user-aelar': {
+    fallbackName: 'Aelar Morningstar',
+    email: 'aelar@example.com',
+    title: 'System Administrator',
+    capabilityRoles: ['system-admin'],
+    preferences: {
+      language: 'English (UK)',
+      region: 'United Kingdom',
+      timezone: 'Europe/London'
+    }
+  },
+  'user-lyra': {
+    fallbackName: 'Lyra Willowstep',
+    email: 'lyra@example.com',
+    title: 'Campaign Player',
+    capabilityRoles: [],
+    preferences: {
+      language: 'Common',
+      region: 'The Feywild',
+      timezone: 'Faerûn Standard Time'
+    }
+  }
+}
+
 const modules = [
   {
     id: 'platform-admin',
@@ -116,18 +141,17 @@ const newId = (prefix) => {
 
 function App() {
   const storedState = useMemo(() => readStoredState(), [])
+  const [session, setSession] = useState(() => {
+    const savedSession =
+      storedState && typeof storedState === 'object' && typeof storedState.session === 'object'
+        ? storedState.session
+        : null
 
-  const [currentUser] = useState({
-    id: 'user-aelar',
-    fallbackName: 'Aelar Morningstar',
-    email: 'aelar@example.com',
-    title: 'System Administrator',
-    capabilityRoles: ['system-admin'],
-    preferences: {
-      language: 'English (UK)',
-      region: 'United Kingdom',
-      timezone: 'Europe/London'
+    if (savedSession && typeof savedSession.authenticatedUserId === 'string') {
+      return { authenticatedUserId: savedSession.authenticatedUserId }
     }
+
+    return { authenticatedUserId: null }
   })
 
   const [activeModuleId, setActiveModuleId] = useState('platform-admin')
@@ -139,39 +163,89 @@ function App() {
   const [campaigns, setCampaigns] = useState(() =>
     Array.isArray(storedState?.campaigns) ? storedState.campaigns : seededCampaigns
   )
+  const [authError, setAuthError] = useState(null)
+  const authenticatedUserId = session?.authenticatedUserId ?? null
 
   const resolvedCurrentUser = useMemo(
-    () => users.find((user) => user.id === currentUser.id) ?? null,
-    [users, currentUser.id]
+    () => (authenticatedUserId ? users.find((user) => user.id === authenticatedUserId) ?? null : null),
+    [users, authenticatedUserId]
   )
 
-  const currentUserDisplayName = resolvedCurrentUser?.displayName ?? currentUser.fallbackName
-  const currentUserEmail = resolvedCurrentUser?.email ?? currentUser.email
+  const currentAccountProfile = useMemo(() => {
+    if (!authenticatedUserId) {
+      return null
+    }
+
+    const profile = accountProfiles[authenticatedUserId]
+    if (profile) {
+      return profile
+    }
+
+    if (!resolvedCurrentUser) {
+      return {
+        fallbackName: 'Adventurer',
+        email: '',
+        title: 'Adventurer',
+        capabilityRoles: [],
+        preferences: {}
+      }
+    }
+
+    return {
+      fallbackName: resolvedCurrentUser.displayName || resolvedCurrentUser.username || 'Adventurer',
+      email: resolvedCurrentUser.email || '',
+      title: 'Adventurer',
+      capabilityRoles: [],
+      preferences: {}
+    }
+  }, [authenticatedUserId, resolvedCurrentUser])
+
+  const currentUserDisplayName =
+    resolvedCurrentUser?.displayName ?? currentAccountProfile?.fallbackName ?? 'Guest Adventurer'
+  const currentUserEmail = resolvedCurrentUser?.email ?? currentAccountProfile?.email ?? '—'
   const currentUserStatus = resolvedCurrentUser?.status ?? 'Active'
-  const currentUserTitle = currentUser.title
-  const currentUserPreferences = currentUser.preferences
+  const currentUserTitle = currentAccountProfile?.title ?? 'Adventurer'
+  const currentUserPreferences = currentAccountProfile?.preferences ?? {}
+  const currentUserCapabilityRoles = useMemo(
+    () => currentAccountProfile?.capabilityRoles ?? [],
+    [currentAccountProfile]
+  )
+  const loginExamples = useMemo(
+    () =>
+      seededUsers.map((user) => ({
+        id: user.id,
+        name: user.displayName,
+        username: user.username,
+        password: user.password
+      })),
+    []
+  )
 
   const currentUserRoleNames = useMemo(() => {
-    if (!resolvedCurrentUser) {
-      return currentUser.capabilityRoles.map((role) => role.replace('-', ' '))
+    if (resolvedCurrentUser?.roles && resolvedCurrentUser.roles.length > 0) {
+      const mappedRoles = resolvedCurrentUser.roles
+        .map((roleId) => roles.find((role) => role.id === roleId)?.name)
+        .filter(Boolean)
+
+      if (mappedRoles.length > 0) {
+        return mappedRoles
+      }
+
+      return ['Unknown role']
     }
 
-    if (!resolvedCurrentUser.roles || resolvedCurrentUser.roles.length === 0) {
-      return ['No roles assigned']
+    if (currentUserCapabilityRoles.length > 0) {
+      return currentUserCapabilityRoles.map((role) => role.replace(/-/g, ' '))
     }
 
-    const mappedRoles = resolvedCurrentUser.roles
-      .map((roleId) => roles.find((role) => role.id === roleId)?.name)
-      .filter(Boolean)
-
-    return mappedRoles.length > 0 ? mappedRoles : ['Unknown role']
-  }, [resolvedCurrentUser, roles, currentUser.capabilityRoles])
+    return ['No roles assigned']
+  }, [resolvedCurrentUser, roles, currentUserCapabilityRoles])
 
   const permissions = useMemo(() => {
     const modulePermissions = capabilityMatrix['platform-admin'] || {}
     const derivedPermissions = new Set()
 
-    currentUser.capabilityRoles.forEach((roleKey) => {
+    currentUserCapabilityRoles.forEach((roleKey) => {
       const capabilities = modulePermissions[roleKey]
       if (capabilities) {
         capabilities.forEach((cap) => derivedPermissions.add(cap))
@@ -184,11 +258,21 @@ function App() {
       canManageRoles: derivedPermissions.has('manage-roles'),
       canManageCampaigns: derivedPermissions.has('manage-campaigns')
     }
-  }, [currentUser.capabilityRoles])
+  }, [currentUserCapabilityRoles])
 
   useEffect(() => {
-    writeStoredState({ users, roles, campaigns })
-  }, [users, roles, campaigns])
+    if (authenticatedUserId && !resolvedCurrentUser) {
+      setSession({ authenticatedUserId: null })
+      setProfileOpen(false)
+      setActiveModuleId('platform-admin')
+      setActiveSectionId('users')
+      setAuthError('Your account is no longer available. Please sign in again.')
+    }
+  }, [authenticatedUserId, resolvedCurrentUser])
+
+  useEffect(() => {
+    writeStoredState({ users, roles, campaigns, session })
+  }, [users, roles, campaigns, session])
 
   useEffect(() => {
     if (!permissions.canViewPlatformAdmin) {
@@ -237,6 +321,43 @@ function App() {
 
     return modules
   }, [permissions.canViewPlatformAdmin])
+
+  const handleLogout = () => {
+    setSession({ authenticatedUserId: null })
+    setProfileOpen(false)
+    setActiveModuleId('platform-admin')
+    setActiveSectionId('users')
+    setAuthError('You have been signed out. Sign in again to continue.')
+  }
+
+  const handleAuthenticate = ({ identifier, password }) => {
+    const trimmedIdentifier = typeof identifier === 'string' ? identifier.trim() : ''
+    const providedPassword = typeof password === 'string' ? password : ''
+
+    if (!trimmedIdentifier || !providedPassword) {
+      setAuthError('Enter your username or email and password to continue.')
+      return false
+    }
+
+    const normalizedIdentifier = trimmedIdentifier.toLowerCase()
+    const matchedUser = users.find((user) => {
+      const username = typeof user.username === 'string' ? user.username.toLowerCase() : ''
+      const email = typeof user.email === 'string' ? user.email.toLowerCase() : ''
+      return username === normalizedIdentifier || email === normalizedIdentifier
+    })
+
+    if (!matchedUser || matchedUser.password !== providedPassword) {
+      setAuthError('The provided credentials are invalid. Please try again.')
+      return false
+    }
+
+    setSession({ authenticatedUserId: matchedUser.id })
+    setActiveModuleId('platform-admin')
+    setActiveSectionId('users')
+    setProfileOpen(false)
+    setAuthError(null)
+    return true
+  }
 
   const updateUsersWithRoleRemoval = (roleId) => {
     setUsers((prev) =>
@@ -360,6 +481,17 @@ function App() {
     setCampaigns((prev) => prev.filter((campaign) => campaign.id !== campaignId))
   }
 
+  if (!authenticatedUserId) {
+    return (
+      <LoginPage
+        onAuthenticate={handleAuthenticate}
+        error={authError}
+        examples={loginExamples}
+        onClearError={() => setAuthError(null)}
+      />
+    )
+  }
+
   return (
     <div className="app-shell">
       <aside className="shell-sidebar">
@@ -424,6 +556,7 @@ function App() {
               username={resolvedCurrentUser?.username}
               roleNames={currentUserRoleNames}
               onClose={() => setProfileOpen(false)}
+              onLogout={handleLogout}
               lastUpdated={resolvedCurrentUser?.updatedAt}
               preferences={currentUserPreferences}
             />
@@ -1037,7 +1170,18 @@ function PlatformAdmin({
   )
 }
 
-function MyProfile({ name, title, email, status, username, roleNames, onClose, lastUpdated, preferences }) {
+function MyProfile({
+  name,
+  title,
+  email,
+  status,
+  username,
+  roleNames,
+  onClose,
+  onLogout,
+  lastUpdated,
+  preferences
+}) {
   const displayName = name || 'Unnamed user'
   const displayTitle = title || 'Adventurer'
   const displayEmail = email || '—'
@@ -1068,9 +1212,16 @@ function MyProfile({ name, title, email, status, username, roleNames, onClose, l
           <h2>My Profile</h2>
           <p>Keep your personal information up to date and control how other adventurers see you.</p>
         </div>
-        <button type="button" className="ghost" onClick={onClose}>
-          Back to platform admin
-        </button>
+        <div className="profile-header-actions">
+          <button type="button" className="ghost" onClick={onClose}>
+            Back to platform admin
+          </button>
+          {typeof onLogout === 'function' && (
+            <button type="button" className="ghost destructive" onClick={onLogout}>
+              Log out
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="profile-grid">
@@ -1132,6 +1283,119 @@ function MyProfile({ name, title, email, status, username, roleNames, onClose, l
           </dl>
           <p className="profile-meta-note">Personal settings can be updated at any time.</p>
         </article>
+      </div>
+    </section>
+  )
+}
+
+function LoginPage({ onAuthenticate, error, examples, onClearError }) {
+  const [formState, setFormState] = useState({ identifier: '', password: '' })
+  const [submitted, setSubmitted] = useState(false)
+
+  const identifierError = submitted && !formState.identifier.trim() ? 'Enter your username or email.' : null
+  const passwordError = submitted && !formState.password ? 'Enter your password.' : null
+
+  const handleChange = (field) => (event) => {
+    const value = event.target.value
+    setFormState((previous) => ({ ...previous, [field]: value }))
+    if (typeof onClearError === 'function') {
+      onClearError()
+    }
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    setSubmitted(true)
+
+    const success =
+      typeof onAuthenticate === 'function'
+        ? onAuthenticate({ identifier: formState.identifier, password: formState.password })
+        : false
+
+    if (!success) {
+      setFormState((previous) => ({ ...previous, password: '' }))
+    }
+  }
+
+  return (
+    <section className="login-page">
+      <div className="login-card">
+        <header className="login-card-header">
+          <div className="login-brand">DnD Platform</div>
+          <h1>Welcome back</h1>
+          <p>Sign in to orchestrate epic adventures and manage your campaigns.</p>
+        </header>
+
+        {error && (
+          <div className="form-error" role="alert" aria-live="assertive">
+            {error}
+          </div>
+        )}
+
+        <form className="login-form" onSubmit={handleSubmit} noValidate>
+          <div className="login-form-field">
+            <label htmlFor="login-identifier">Username or email</label>
+            <input
+              id="login-identifier"
+              type="text"
+              autoComplete="username"
+              value={formState.identifier}
+              onChange={handleChange('identifier')}
+              aria-invalid={identifierError ? 'true' : 'false'}
+              aria-describedby={identifierError ? 'login-identifier-error' : undefined}
+              placeholder="e.g. aelar or aelar@example.com"
+            />
+            {identifierError && (
+              <p id="login-identifier-error" className="field-error">
+                {identifierError}
+              </p>
+            )}
+          </div>
+
+          <div className="login-form-field">
+            <label htmlFor="login-password">Password</label>
+            <input
+              id="login-password"
+              type="password"
+              autoComplete="current-password"
+              value={formState.password}
+              onChange={handleChange('password')}
+              aria-invalid={passwordError ? 'true' : 'false'}
+              aria-describedby={passwordError ? 'login-password-error' : undefined}
+              placeholder="Enter your password"
+            />
+            {passwordError && (
+              <p id="login-password-error" className="field-error">
+                {passwordError}
+              </p>
+            )}
+          </div>
+
+          <button type="submit" className="primary full-width">
+            Sign in
+          </button>
+        </form>
+
+        {Array.isArray(examples) && examples.length > 0 && (
+          <aside className="login-examples" aria-label="Demo credentials">
+            <h2>Try a demo account</h2>
+            <ul className="login-examples-list">
+              {examples.map((example) => (
+                <li key={example.id}>
+                  <div className="login-example-name">{example.name}</div>
+                  <div className="login-example-credentials">
+                    <span>
+                      <strong>Username:</strong> <code>{example.username}</code>
+                    </span>
+                    <span>
+                      <strong>Password:</strong> <code>{example.password}</code>
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </aside>
+        )}
       </div>
     </section>
   )
