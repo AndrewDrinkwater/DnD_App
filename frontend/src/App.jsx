@@ -123,7 +123,7 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/users/${createdUser.id}/system-roles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roleId: Number(selectedRoleId) })
+        body: JSON.stringify({ roleId: selectedRoleId })
       })
 
       const payload = await response.json()
