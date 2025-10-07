@@ -747,17 +747,74 @@
 
 .campaign-group ul li {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
 }
 
 .party-member {
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .party-role {
   color: #475569;
   font-size: 0.9rem;
+}
+
+.party-entry-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.party-character-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.party-character-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.party-character-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.party-character {
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.party-character-name {
+  font-weight: 600;
+}
+
+.party-character-player {
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.party-character-empty {
+  color: #475569;
+  font-size: 0.9rem;
+  margin: 0;
 }
 
 .my-profile {
