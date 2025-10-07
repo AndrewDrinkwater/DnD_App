@@ -170,7 +170,6 @@ const modules = [
   {
     id: 'world',
     label: 'World',
-    icon: '🌍',
     description: 'Curate worlds, lore, and locations that power your campaigns.',
     requiredRoleNames: ['World Admin', 'System Administrator'],
     path: '/worlds'
@@ -178,21 +177,18 @@ const modules = [
   {
     id: 'campaigns',
     label: 'Campaigns',
-    icon: '📜',
     description: 'Coordinate the adventures you are part of and align your party context.',
     path: '/campaigns'
   },
   {
     id: 'characters',
     label: 'Characters',
-    icon: '🧙',
     description: 'Manage your roster of heroes, sidekicks, and alter egos across worlds.',
     path: '/characters'
   },
   {
     id: 'platform-admin',
     label: 'Platform Admin',
-    icon: '🛠️',
     description: 'Manage users, roles, and campaigns across the multiverse.',
     requiredCapability: 'canViewPlatformAdmin',
     path: '/admin'
@@ -334,6 +330,24 @@ function EmptyState({ icon, title, description, action, children, className = ''
       {action}
       {children}
     </div>
+  )
+}
+
+function HomePage({ onEnterWorkspace }) {
+  return (
+    <section className="home-page">
+      <div className="home-hero">
+        <h1>Welcome to DND Shared Space</h1>
+        <p>
+          Choose an area from the navigation to manage your worlds, campaigns, and characters.
+        </p>
+        <div className="home-actions">
+          <Button variant="primary" size="lg" onClick={onEnterWorkspace}>
+            Enter workspace
+          </Button>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -672,12 +686,6 @@ function App() {
   }, [sidebarModules])
 
   useEffect(() => {
-    if (currentPath === '/') {
-      navigate(defaultModulePath, { replace: true })
-    }
-  }, [currentPath, defaultModulePath, navigate])
-
-  useEffect(() => {
     const isModuleRoute = modules.some((module) => pathMatches(currentPath, module.path))
     if (!isModuleRoute) {
       return
@@ -1007,7 +1015,9 @@ function App() {
 
   let mainContent = null
 
-  if (currentPath === '/profile') {
+  if (currentPath === '/') {
+    mainContent = <HomePage onEnterWorkspace={() => navigate(defaultModulePath)} />
+  } else if (currentPath === '/profile') {
     mainContent = (
       <MyProfile
         name={currentUserDisplayName}
@@ -1118,13 +1128,18 @@ function App() {
       <header ref={headerRef} className="app-header">
         <div className="header-bar">
           <div className="brand-identity">
-            <div className="brand-logo" aria-hidden="true">
-              <span>SN</span>
-            </div>
-            <div className="brand-copy">
+            <button
+              type="button"
+              className="brand-home-link"
+              onClick={() => {
+                setSidebarMobileOpen(false)
+                setProfileMenuOpen(false)
+                navigate('/')
+              }}
+              aria-label="Go to home"
+            >
               <span className="brand-title">DND Shared Space</span>
-              <span className="brand-subtitle">Adventuring operations workspace</span>
-            </div>
+            </button>
           </div>
           <div className="header-actions">
             <div className="context-switchers" aria-label="Active context selection">
@@ -1288,6 +1303,7 @@ function App() {
             {sidebarModules.length === 0 && <p className="sidebar-empty">No modules available for your role.</p>}
             {sidebarModules.map((module) => {
               const isActive = module.id === activeModuleId
+              const moduleInitial = module.label.charAt(0).toUpperCase()
               return (
                 <button
                   key={module.id}
@@ -1303,7 +1319,7 @@ function App() {
                   }}
                 >
                   <span className="sidebar-icon" aria-hidden="true">
-                    {module.icon || '•'}
+                    {moduleInitial}
                   </span>
                   <span className="sidebar-label">{module.label}</span>
                 </button>
@@ -1420,20 +1436,33 @@ function WorldPage({ worlds, onSaveWorld, onDeleteWorld }) {
       ) : (
         <div className="world-grid">
           {sortedWorlds.map((world) => (
-            <article key={world.id} className="world-card">
+            <article
+              key={world.id}
+              className="world-card world-card-clickable"
+              role="button"
+              tabIndex={0}
+              aria-label={`Open ${world.name}`}
+              onClick={() => openEdit(world)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  openEdit(world)
+                }
+              }}
+            >
               <header className="world-card-header">
                 <div>
                   <h3>{world.name}</h3>
                   {world.tagline && <p className="world-tagline">{world.tagline}</p>}
                 </div>
                 <div className="card-actions">
-                  <button type="button" className="ghost" onClick={() => openEdit(world)}>
-                    Edit
-                  </button>
                   <button
                     type="button"
                     className="ghost destructive"
-                    onClick={() => requestDelete(world)}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      requestDelete(world)
+                    }}
                   >
                     Delete
                   </button>
@@ -2561,16 +2590,6 @@ function CampaignsPage({
               )}
             </section>
 
-            <div className="campaign-panel__floating">
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={() => openCharacterModal(currentRecord.id, partyMembers[0]?.userId || '')}
-                aria-label={`Add character to ${currentRecord.name}`}
-              >
-                + Add character
-              </Button>
-            </div>
           </div>
         ) : (
           <p className="helper-text">This campaign is no longer available.</p>
@@ -2812,7 +2831,20 @@ function CharactersPage({
               : 'No campaign'
 
             return (
-              <article key={character.id} className="character-card">
+              <article
+                key={character.id}
+                className="character-card character-card-clickable"
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${character.name}`}
+                onClick={() => openEdit(character)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    openEdit(character)
+                  }
+                }}
+              >
                 <header className="character-card-header">
                   <div>
                     <h3>{character.name}</h3>
@@ -2824,18 +2856,21 @@ function CharactersPage({
                     <button
                       type="button"
                       className="ghost"
-                      onClick={() => handleSetActive(character)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        handleSetActive(character)
+                      }}
                       disabled={isCurrent}
                     >
                       {isCurrent ? 'Active' : 'Set active'}
                     </button>
-                    <button type="button" className="ghost" onClick={() => openEdit(character)}>
-                      Edit
-                    </button>
                     <button
                       type="button"
                       className="ghost destructive"
-                      onClick={() => requestDelete(character)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        requestDelete(character)
+                      }}
                     >
                       Delete
                     </button>
