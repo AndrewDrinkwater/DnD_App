@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const STORAGE_KEY = 'dnd-platform-state'
@@ -241,6 +241,7 @@ function App() {
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false)
   const [sidebarHovered, setSidebarHovered] = useState(false)
   const [authError, setAuthError] = useState(null)
+  const headerRef = useRef(null)
   const authenticatedUserId = session?.authenticatedUserId ?? null
 
   const resolvedCurrentUser = useMemo(
@@ -434,6 +435,32 @@ function App() {
     }
   }, [permissions.canViewPlatformAdmin])
 
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    const headerElement = headerRef.current
+    if (!headerElement) return undefined
+
+    const updateHeaderHeight = () => {
+      if (!headerRef.current) return
+      const { height } = headerRef.current.getBoundingClientRect()
+      document.documentElement.style.setProperty('--app-header-height', `${height}px`)
+    }
+
+    updateHeaderHeight()
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(updateHeaderHeight)
+      observer.observe(headerElement)
+      return () => observer.disconnect()
+    }
+
+    window.addEventListener('resize', updateHeaderHeight)
+    return () => {
+      window.removeEventListener('resize', updateHeaderHeight)
+    }
+  }, [])
+
   const activeModule = useMemo(() => modules.find((item) => item.id === activeModuleId) || null, [activeModuleId])
 
   const breadcrumbs = useMemo(() => {
@@ -559,6 +586,7 @@ function App() {
     .filter(Boolean)
     .join(' ')
   const showSidebarBackdrop = sidebarMobileOpen
+  const showSidebarPinToggle = sidebarPinned || sidebarHovered || sidebarMobileOpen
 
   const updateUsersWithRoleRemoval = (roleId) => {
     setUsers((prev) =>
@@ -768,167 +796,170 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside
-        className={sidebarClassName}
-        onMouseEnter={handleSidebarMouseEnter}
-        onMouseLeave={handleSidebarMouseLeave}
-      >
-        <div className="sidebar-header">
+      <header ref={headerRef} className="app-header">
+        <div className="header-bar">
+          <div className="brand-identity">
+            <div className="brand-logo" aria-hidden="true">
+              <span>SN</span>
+            </div>
+            <div className="brand-copy">
+              <span className="brand-title">DND Shared Space</span>
+              <span className="brand-subtitle">Adventuring operations workspace</span>
+            </div>
+          </div>
+          <div className="header-actions">
+            <div className="context-switchers" aria-label="Active context selection">
+              <label className="context-select">
+                <span>Campaign</span>
+                <select
+                  value={appContext.campaignId}
+                  onChange={(event) =>
+                    setAppContext((prev) => ({ ...prev, campaignId: event.target.value }))
+                  }
+                >
+                  <option value="">No campaign selected</option>
+                  {accessibleCampaigns.map((campaign) => (
+                    <option key={campaign.id} value={campaign.id}>
+                      {campaign.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="context-select">
+                <span>Character</span>
+                <select
+                  value={appContext.characterId}
+                  onChange={(event) =>
+                    setAppContext((prev) => ({ ...prev, characterId: event.target.value }))
+                  }
+                >
+                  <option value="">No character selected</option>
+                  {myCharacters.map((character) => (
+                    <option key={character.id} value={character.id}>
+                      {character.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button
+              type="button"
+              className="current-user-button"
+              onClick={() => {
+                setProfileOpen(true)
+                setSidebarMobileOpen(false)
+              }}
+              aria-label="Open my profile"
+            >
+              <span className="user-avatar" aria-hidden="true">
+                {currentUserInitials}
+              </span>
+              <span className="user-meta">
+                <span className="user-name">{currentUserDisplayName}</span>
+                <span className="user-role">{currentUserRoleNames.join(', ')}</span>
+              </span>
+            </button>
+          </div>
+        </div>
+        <div className="header-module">
+          <nav className="breadcrumbs" aria-label="Breadcrumb">
+            {breadcrumbs.map((item, index) => (
+              <span key={item} className="breadcrumb-item">
+                {item}
+                {index < breadcrumbs.length - 1 && <span aria-hidden="true">›</span>}
+              </span>
+            ))}
+          </nav>
+          <h1 className="module-title">{breadcrumbs[breadcrumbs.length - 1]}</h1>
+          {moduleDescription && <p className="module-description">{moduleDescription}</p>}
+        </div>
+      </header>
+
+      <div className="app-body">
+        <aside
+          className={sidebarClassName}
+          onMouseEnter={handleSidebarMouseEnter}
+          onMouseLeave={handleSidebarMouseLeave}
+          aria-label="Primary navigation sidebar"
+        >
+          <div className="sidebar-header">
+            {showSidebarPinToggle && (
+              <button
+                type="button"
+                className={`icon-button sidebar-pin-toggle${sidebarPinned ? ' active' : ''}`}
+                onClick={() => setSidebarPinned((prev) => !prev)}
+                aria-pressed={sidebarPinned}
+                aria-label={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+                title={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="M8 4H16L15.25 9H18L12 15L6 9H8.75Z"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    stroke="currentColor"
+                    fill="none"
+                  />
+                  <path
+                    d="M12 15V21"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    stroke="currentColor"
+                    fill="none"
+                  />
+                </svg>
+              </button>
+            )}
+            <button
+              type="button"
+              className="icon-button sidebar-close"
+              onClick={() => setSidebarMobileOpen(false)}
+              aria-label="Close navigation"
+              title="Close navigation"
+            >
+              ×
+            </button>
+          </div>
+          <nav className="sidebar-nav" aria-label="Primary navigation">
+            {sidebarModules.length === 0 && <p className="sidebar-empty">No modules available for your role.</p>}
+            {sidebarModules.map((module) => {
+              const isActive = module.id === activeModuleId
+              return (
+                <button
+                  key={module.id}
+                  className={`sidebar-link${isActive ? ' active' : ''}`}
+                  type="button"
+                  aria-current={isActive ? 'page' : undefined}
+                  aria-label={module.label}
+                  title={isSidebarCollapsed ? module.label : undefined}
+                  onClick={() => {
+                    setProfileOpen(false)
+                    setActiveModuleId(module.id)
+                    setSidebarMobileOpen(false)
+                  }}
+                >
+                  <span className="sidebar-icon" aria-hidden="true">
+                    {module.icon || '•'}
+                  </span>
+                  <span className="sidebar-label">{module.label}</span>
+                </button>
+              )
+            })}
+          </nav>
+        </aside>
+        {showSidebarBackdrop && (
           <button
             type="button"
-            className={`icon-button sidebar-pin-toggle${sidebarPinned ? ' active' : ''}`}
-            onClick={() => setSidebarPinned((prev) => !prev)}
-            aria-pressed={sidebarPinned}
-            aria-label={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
-            title={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
-          >
-            <span aria-hidden="true">{sidebarPinned ? '📌' : '📍'}</span>
-          </button>
-          <button
-            type="button"
-            className="icon-button sidebar-close"
+            className="sidebar-backdrop"
             onClick={() => setSidebarMobileOpen(false)}
             aria-label="Close navigation"
-            title="Close navigation"
-          >
-            ×
-          </button>
-        </div>
-        <div className="sidebar-brand" aria-label="DnD platform workspace">
-          <span className="sidebar-logo" aria-hidden="true">
-            🛡️
-          </span>
-          <span className="sidebar-title">Planar Service Hub</span>
-        </div>
-        <nav className="sidebar-nav">
-          {sidebarModules.length === 0 && <p className="sidebar-empty">No modules available for your role.</p>}
-          {sidebarModules.map((module) => {
-            const isActive = module.id === activeModuleId
-            return (
-              <button
-                key={module.id}
-                className={`sidebar-link${isActive ? ' active' : ''}`}
-                type="button"
-                aria-current={isActive ? 'page' : undefined}
-                aria-label={module.label}
-                title={isSidebarCollapsed ? module.label : undefined}
-                onClick={() => {
-                  setProfileOpen(false)
-                  setActiveModuleId(module.id)
-                  setSidebarMobileOpen(false)
-                }}
-              >
-                <span className="sidebar-icon" aria-hidden="true">
-                  {module.icon || '•'}
-                </span>
-                <span className="sidebar-label">{module.label}</span>
-              </button>
-            )
-          })}
-        </nav>
-      </aside>
-      {showSidebarBackdrop && (
-        <button
-          type="button"
-          className="sidebar-backdrop"
-          onClick={() => setSidebarMobileOpen(false)}
-          aria-label="Close navigation"
-        />
-      )}
+          />
+        )}
 
-      <div className="shell-main">
-        <header className="app-header">
-          <div className="header-bar">
-            <div className="brand-group">
-              <button
-                type="button"
-                className="sidebar-trigger"
-                onClick={() => setSidebarMobileOpen(true)}
-                aria-label="Open navigation"
-                aria-expanded={sidebarMobileOpen}
-              >
-                <span className="sr-only">Open navigation</span>
-                <span aria-hidden="true">☰</span>
-              </button>
-              <div className="brand-identity">
-                <div className="brand-logo" aria-hidden="true">
-                  <span>SN</span>
-                </div>
-                <div className="brand-copy">
-                  <span className="brand-title">Planar Service Hub</span>
-                  <span className="brand-subtitle">Adventuring operations workspace</span>
-                </div>
-              </div>
-            </div>
-            <div className="header-actions">
-              <div className="context-switchers" aria-label="Active context selection">
-                <label className="context-select">
-                  <span>Campaign</span>
-                  <select
-                    value={appContext.campaignId}
-                    onChange={(event) =>
-                      setAppContext((prev) => ({ ...prev, campaignId: event.target.value }))
-                    }
-                  >
-                    <option value="">No campaign selected</option>
-                    {accessibleCampaigns.map((campaign) => (
-                      <option key={campaign.id} value={campaign.id}>
-                        {campaign.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="context-select">
-                  <span>Character</span>
-                  <select
-                    value={appContext.characterId}
-                    onChange={(event) =>
-                      setAppContext((prev) => ({ ...prev, characterId: event.target.value }))
-                    }
-                  >
-                    <option value="">No character selected</option>
-                    {myCharacters.map((character) => (
-                      <option key={character.id} value={character.id}>
-                        {character.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <button
-                type="button"
-                className="current-user-button"
-                onClick={() => {
-                  setProfileOpen(true)
-                  setSidebarMobileOpen(false)
-                }}
-                aria-label="Open my profile"
-              >
-                <span className="user-avatar" aria-hidden="true">
-                  {currentUserInitials}
-                </span>
-                <span className="user-meta">
-                  <span className="user-name">{currentUserDisplayName}</span>
-                  <span className="user-role">{currentUserRoleNames.join(', ')}</span>
-                </span>
-              </button>
-            </div>
-          </div>
-          <div className="header-module">
-            <nav className="breadcrumbs" aria-label="Breadcrumb">
-              {breadcrumbs.map((item, index) => (
-                <span key={item} className="breadcrumb-item">
-                  {item}
-                  {index < breadcrumbs.length - 1 && <span aria-hidden="true">›</span>}
-                </span>
-              ))}
-            </nav>
-            <h1 className="module-title">{breadcrumbs[breadcrumbs.length - 1]}</h1>
-            {moduleDescription && <p className="module-description">{moduleDescription}</p>}
-          </div>
-        </header>
-
-        <main className="module-content">
+        <div className="shell-main">
+          <main className="module-content">
           {profileOpen ? (
             <MyProfile
               name={currentUserDisplayName}
@@ -1014,6 +1045,7 @@ function App() {
           )}
         </main>
       </div>
+    </div>
     </div>
   )
 }
