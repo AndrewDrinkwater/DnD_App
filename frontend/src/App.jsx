@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const STORAGE_KEY = 'dnd-platform-state'
@@ -86,6 +86,7 @@ const seededCampaigns = [
     name: 'Rise of Tiamat',
     status: 'Planning',
     summary: 'High level threat from the Dragon Queen.',
+    worldId: 'world-faerun',
     assignments: [
       { id: 'assign-1', userId: 'user-aelar', roleId: 'role-dungeon-master' },
       { id: 'assign-2', userId: 'user-lyra', roleId: 'role-player' }
@@ -150,7 +151,7 @@ const modules = [
     label: 'World',
     icon: '🌍',
     description: 'Curate worlds, lore, and locations that power your campaigns.',
-    requiredRoleNames: ['World Admin']
+    requiredRoleNames: ['World Admin', 'System Administrator']
   },
   {
     id: 'campaigns',
@@ -713,6 +714,13 @@ function App() {
 
   const handleDeleteWorld = (worldId) => {
     setWorlds((prev) => prev.filter((world) => world.id !== worldId))
+    setCampaigns((prev) =>
+      prev.map((campaign) =>
+        campaign.worldId === worldId
+          ? { ...campaign, worldId: '', updatedAt: new Date().toISOString() }
+          : campaign
+      )
+    )
   }
 
   const handleSaveCharacter = (payload, mode) => {
@@ -954,6 +962,7 @@ function App() {
                     setAppContext((prev) => ({ ...prev, campaignId }))
                   }
                   currentCampaignId={appContext.campaignId}
+                  worlds={worlds}
                 />
               )}
 
@@ -987,11 +996,12 @@ function App() {
                     permissions={permissions}
                     onSaveUser={handleSaveUser}
                     onDeleteUser={handleDeleteUser}
-                    onSaveRole={handleSaveRole}
-                    onDeleteRole={handleDeleteRole}
-                    onSaveCampaign={handleSaveCampaign}
-                    onDeleteCampaign={handleDeleteCampaign}
-                  />
+                  onSaveRole={handleSaveRole}
+                  onDeleteRole={handleDeleteRole}
+                  onSaveCampaign={handleSaveCampaign}
+                  onDeleteCampaign={handleDeleteCampaign}
+                  worlds={worlds}
+                />
                 ) : (
                   <div className="empty-state">
                     <h2>Access restricted</h2>
@@ -1204,11 +1214,26 @@ function CampaignsPage({
   users,
   isSystemAdmin,
   onSelectCampaign,
-  currentCampaignId
+  currentCampaignId,
+  worlds
 }) {
-  const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
-  const [form, setForm] = useState({ name: '', status: 'Planning', summary: '', assignments: [] })
-  const [confirmState, setConfirmState] = useState({ open: false, record: null })
+  const roleNameLookup = useMemo(() => {
+    const map = new Map()
+    roles.forEach((role) => map.set(role.id, role.name))
+    return map
+  }, [roles])
+
+  const userNameLookup = useMemo(() => {
+    const map = new Map()
+    users.forEach((user) => map.set(user.id, user.displayName || user.username || 'Unassigned'))
+    return map
+  }, [users])
+
+  const worldNameLookup = useMemo(() => {
+    const map = new Map()
+    worlds.forEach((world) => map.set(world.id, world.name))
+    return map
+  }, [worlds])
 
   const dungeonMasterRoleId = useMemo(
     () => roles.find((role) => role.name === 'Dungeon Master')?.id || '',
@@ -1229,6 +1254,71 @@ function CampaignsPage({
     [users]
   )
 
+  const worldOptions = useMemo(
+    () => worlds.map((world) => ({ id: world.id, name: world.name })),
+    [worlds]
+  )
+
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
+  const [createForm, setCreateForm] = useState(() => ({
+    name: '',
+    status: 'Planning',
+    summary: '',
+    worldId: worldOptions[0]?.id ?? '',
+    assignments: []
+  }))
+  const [recordDrawer, setRecordDrawer] = useState({ open: false, recordId: null, editing: false })
+  const [recordForm, setRecordForm] = useState({
+    name: '',
+    status: 'Planning',
+    summary: '',
+    worldId: '',
+    assignments: []
+  })
+  const [confirmState, setConfirmState] = useState({ open: false, record: null })
+
+  useEffect(() => {
+    if (!createDrawerOpen) {
+      setCreateForm({
+        name: '',
+        status: 'Planning',
+        summary: '',
+        worldId: worldOptions[0]?.id ?? '',
+        assignments: []
+      })
+    }
+  }, [createDrawerOpen, worldOptions])
+
+  useEffect(() => {
+    if (!recordDrawer.open) {
+      setRecordForm({
+        name: '',
+        status: 'Planning',
+        summary: '',
+        worldId: '',
+        assignments: []
+      })
+      return
+    }
+
+    if (!recordDrawer.recordId || recordDrawer.editing) {
+      return
+    }
+
+    const latest = accessibleCampaigns.find((campaign) => campaign.id === recordDrawer.recordId)
+    if (latest) {
+      setRecordForm({
+        name: latest.name || '',
+        status: latest.status || 'Planning',
+        summary: latest.summary || '',
+        worldId: latest.worldId || '',
+        assignments: Array.isArray(latest.assignments)
+          ? latest.assignments.map((assignment) => ({ ...assignment }))
+          : []
+      })
+    }
+  }, [recordDrawer.open, recordDrawer.recordId, recordDrawer.editing, accessibleCampaigns])
+
   const sortedCampaigns = useMemo(() => {
     return [...accessibleCampaigns].sort((a, b) => {
       const getTime = (value) => (value ? new Date(value).getTime() : 0)
@@ -1236,9 +1326,41 @@ function CampaignsPage({
     })
   }, [accessibleCampaigns])
 
-  const closeEditor = () => {
-    setEditor((prev) => ({ ...prev, open: false }))
-    setForm({ name: '', status: 'Planning', summary: '', assignments: [] })
+  const describeStatus = (status) => {
+    if (!status) return 'Unknown'
+    return status.charAt(0).toUpperCase() + status.slice(1)
+  }
+
+  const getUserName = (userId) => userNameLookup.get(userId) || 'Unknown user'
+  const getRoleName = (roleId) => roleNameLookup.get(roleId) || 'Unknown role'
+  const getWorldName = (worldId) => worldNameLookup.get(worldId) || 'Unassigned world'
+
+  const userCanManage = (campaign) => {
+    if (isSystemAdmin) return true
+    if (!currentUserId) return false
+    if (!Array.isArray(campaign.assignments)) return false
+
+    return campaign.assignments.some((assignment) => {
+      if (assignment.userId !== currentUserId) return false
+      const roleName = roleNameLookup.get(assignment.roleId)
+      return roleName === 'Dungeon Master'
+    })
+  }
+
+  const splitAssignments = (campaign) => {
+    const result = { dungeonMasters: [], partyMembers: [] }
+    if (!Array.isArray(campaign.assignments)) {
+      return result
+    }
+    campaign.assignments.forEach((assignment) => {
+      const roleName = roleNameLookup.get(assignment.roleId)
+      if (roleName === 'Dungeon Master') {
+        result.dungeonMasters.push(assignment)
+      } else {
+        result.partyMembers.push(assignment)
+      }
+    })
+    return result
   }
 
   const openCreate = () => {
@@ -1250,48 +1372,40 @@ function CampaignsPage({
         roleId: dungeonMasterRoleId
       })
     }
-    setForm({ name: '', status: 'Planning', summary: '', assignments: defaultAssignments })
-    setEditor({ open: true, mode: 'create', record: null })
-  }
-
-  const openEdit = (record) => {
-    setForm({
-      name: record.name || '',
-      status: record.status || 'Planning',
-      summary: record.summary || '',
-      assignments: Array.isArray(record.assignments)
-        ? record.assignments.map((assignment) => ({ ...assignment }))
-        : []
+    setCreateForm({
+      name: '',
+      status: 'Planning',
+      summary: '',
+      worldId: worldOptions[0]?.id ?? '',
+      assignments: defaultAssignments
     })
-    setEditor({ open: true, mode: 'edit', record })
+    setCreateDrawerOpen(true)
   }
 
-  const handleSubmit = (event) => {
+  const closeCreateDrawer = () => setCreateDrawerOpen(false)
+
+  const handleSubmitCreate = (event) => {
     event.preventDefault()
     const payload = {
-      name: form.name.trim(),
-      status: form.status || 'Planning',
-      summary: form.summary.trim(),
-      assignments: form.assignments.filter((assignment) => assignment.userId && assignment.roleId)
+      name: createForm.name.trim(),
+      status: createForm.status || 'Planning',
+      summary: createForm.summary.trim(),
+      worldId: createForm.worldId || '',
+      assignments: createForm.assignments.filter((assignment) => assignment.userId && assignment.roleId)
     }
 
     if (!payload.name) {
       return
     }
 
-    if (editor.mode === 'edit' && editor.record) {
-      onSaveCampaign({ ...payload, id: editor.record.id }, 'edit')
-    } else {
-      onSaveCampaign(payload, 'create')
-    }
-
-    closeEditor()
+    onSaveCampaign(payload, 'create')
+    closeCreateDrawer()
   }
 
-  const handleAddAssignment = () => {
+  const handleAddCreateAssignment = () => {
     const defaultUser = currentUserId || (userOptions[0]?.id ?? '')
     const defaultRole = dungeonMasterRoleId || (roleOptions[0]?.id ?? '')
-    setForm((prev) => ({
+    setCreateForm((prev) => ({
       ...prev,
       assignments: [
         ...prev.assignments,
@@ -1300,8 +1414,8 @@ function CampaignsPage({
     }))
   }
 
-  const handleUpdateAssignment = (assignmentId, key, value) => {
-    setForm((prev) => ({
+  const handleUpdateCreateAssignment = (assignmentId, key, value) => {
+    setCreateForm((prev) => ({
       ...prev,
       assignments: prev.assignments.map((assignment) =>
         assignment.id === assignmentId ? { ...assignment, [key]: value } : assignment
@@ -1309,8 +1423,97 @@ function CampaignsPage({
     }))
   }
 
-  const handleRemoveAssignment = (assignmentId) => {
-    setForm((prev) => ({
+  const handleRemoveCreateAssignment = (assignmentId) => {
+    if (!window.confirm('Remove this assignment from the campaign?')) return
+    setCreateForm((prev) => ({
+      ...prev,
+      assignments: prev.assignments.filter((assignment) => assignment.id !== assignmentId)
+    }))
+  }
+
+  const openRecord = (record) => {
+    setRecordDrawer({ open: true, recordId: record.id, editing: false })
+    setRecordForm({
+      name: record.name || '',
+      status: record.status || 'Planning',
+      summary: record.summary || '',
+      worldId: record.worldId || '',
+      assignments: Array.isArray(record.assignments)
+        ? record.assignments.map((assignment) => ({ ...assignment }))
+        : []
+    })
+  }
+
+  const closeRecord = () => setRecordDrawer({ open: false, recordId: null, editing: false })
+
+  const beginEditRecord = () => setRecordDrawer((prev) => ({ ...prev, editing: true }))
+
+  const cancelEditRecord = () => {
+    if (!recordDrawer.recordId) {
+      closeRecord()
+      return
+    }
+    const latest = accessibleCampaigns.find((campaign) => campaign.id === recordDrawer.recordId)
+    if (latest) {
+      setRecordForm({
+        name: latest.name || '',
+        status: latest.status || 'Planning',
+        summary: latest.summary || '',
+        worldId: latest.worldId || '',
+        assignments: Array.isArray(latest.assignments)
+          ? latest.assignments.map((assignment) => ({ ...assignment }))
+          : []
+      })
+    }
+    setRecordDrawer((prev) => ({ ...prev, editing: false }))
+  }
+
+  const handleSubmitRecord = (event) => {
+    event.preventDefault()
+    if (!recordDrawer.recordId) {
+      return
+    }
+    const payload = {
+      id: recordDrawer.recordId,
+      name: recordForm.name.trim(),
+      status: recordForm.status || 'Planning',
+      summary: recordForm.summary.trim(),
+      worldId: recordForm.worldId || '',
+      assignments: recordForm.assignments.filter((assignment) => assignment.userId && assignment.roleId)
+    }
+
+    if (!payload.name) {
+      return
+    }
+
+    onSaveCampaign(payload, 'edit')
+    setRecordDrawer({ open: false, recordId: null, editing: false })
+  }
+
+  const handleAddRecordAssignment = () => {
+    const defaultUser = currentUserId || (userOptions[0]?.id ?? '')
+    const defaultRole = dungeonMasterRoleId || (roleOptions[0]?.id ?? '')
+    setRecordForm((prev) => ({
+      ...prev,
+      assignments: [
+        ...prev.assignments,
+        { id: newId('assignment'), userId: defaultUser, roleId: defaultRole }
+      ]
+    }))
+  }
+
+  const handleUpdateRecordAssignment = (assignmentId, key, value) => {
+    setRecordForm((prev) => ({
+      ...prev,
+      assignments: prev.assignments.map((assignment) =>
+        assignment.id === assignmentId ? { ...assignment, [key]: value } : assignment
+      )
+    }))
+  }
+
+  const handleRemoveRecordAssignment = (assignmentId) => {
+    if (!window.confirm('Remove this assignment from the campaign?')) return
+    setRecordForm((prev) => ({
       ...prev,
       assignments: prev.assignments.filter((assignment) => assignment.id !== assignmentId)
     }))
@@ -1325,31 +1528,95 @@ function CampaignsPage({
   const handleConfirmDelete = () => {
     if (confirmState.record) {
       onDeleteCampaign(confirmState.record.id)
+      if (recordDrawer.recordId === confirmState.record.id) {
+        closeRecord()
+      }
     }
     closeConfirm()
   }
 
-  const userCanManage = (campaign) => {
-    if (isSystemAdmin) return true
-    if (!currentUserId) return false
-    if (!Array.isArray(campaign.assignments)) return false
+  const currentRecord = recordDrawer.recordId
+    ? accessibleCampaigns.find((campaign) => campaign.id === recordDrawer.recordId) || null
+    : null
 
-    return campaign.assignments.some((assignment) => {
-      if (assignment.userId !== currentUserId) return false
-      const role = roles.find((roleItem) => roleItem.id === assignment.roleId)
-      return role?.name === 'Dungeon Master'
-    })
+  const canManageCurrent = currentRecord ? userCanManage(currentRecord) : false
+
+  const recordDrawerTitle = recordDrawer.editing
+    ? recordForm.name || currentRecord?.name || 'Edit campaign'
+    : currentRecord?.name || 'Campaign details'
+
+  const formatTimestamp = (value) =>
+    value ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—'
+
+  const formatCardTimestamp = (value) => (value ? new Date(value).toLocaleDateString() : '—')
+
+  const { dungeonMasters, partyMembers } = useMemo(() => {
+    if (!currentRecord) {
+      return { dungeonMasters: [], partyMembers: [] }
+    }
+    return splitAssignments(currentRecord)
+  }, [currentRecord, roleNameLookup])
+
+  const renderAssignmentEditor = (assignments, onUpdate, onRemove, prefix) => {
+    if (assignments.length === 0) {
+      return null
+    }
+    return (
+      <div className="assignment-table" role="table">
+        <div className="assignment-table-header" role="row">
+          <span role="columnheader">Participant</span>
+          <span role="columnheader">Role</span>
+          <span className="assignment-table-actions" role="columnheader">
+            Actions
+          </span>
+        </div>
+        {assignments.map((assignment, index) => {
+          const userFieldId = `${prefix}-assignment-${assignment.id}-user`
+          const roleFieldId = `${prefix}-assignment-${assignment.id}-role`
+          return (
+            <div key={assignment.id} className="assignment-table-row" role="row">
+              <label className="sr-only" htmlFor={userFieldId}>
+                Participant
+              </label>
+              <select
+                id={userFieldId}
+                value={assignment.userId}
+                onChange={(event) => onUpdate(assignment.id, 'userId', event.target.value)}
+              >
+                <option value="">Select user</option>
+                {userOptions.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name}
+                  </option>
+                ))}
+              </select>
+              <label className="sr-only" htmlFor={roleFieldId}>
+                Role
+              </label>
+              <select
+                id={roleFieldId}
+                value={assignment.roleId}
+                onChange={(event) => onUpdate(assignment.id, 'roleId', event.target.value)}
+              >
+                <option value="">Select role</option>
+                {roleOptions.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="ghost" onClick={() => onRemove(assignment.id)}>
+                Remove
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    )
   }
 
-  const formId = 'campaign-record-form'
-
-  const describeStatus = (status) => {
-    if (!status) return 'Unknown'
-    return status.charAt(0).toUpperCase() + status.slice(1)
-  }
-
-  const getUserName = (userId) => userOptions.find((option) => option.id === userId)?.name || 'Unknown user'
-  const getRoleName = (roleId) => roleOptions.find((option) => option.id === roleId)?.name || 'Unknown role'
+  const createFormId = 'campaign-create-form'
+  const recordFormId = 'campaign-edit-form'
 
   return (
     <section className="campaigns-page">
@@ -1375,8 +1642,21 @@ function CampaignsPage({
           {sortedCampaigns.map((campaign) => {
             const manageAllowed = userCanManage(campaign)
             const isCurrent = currentCampaignId === campaign.id
+            const { dungeonMasters: cardDMs, partyMembers: cardParty } = splitAssignments(campaign)
             return (
-              <article key={campaign.id} className="campaign-card">
+              <article
+                key={campaign.id}
+                className="campaign-card campaign-card-clickable"
+                role="button"
+                tabIndex={0}
+                onClick={() => openRecord(campaign)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    openRecord(campaign)
+                  }
+                }}
+              >
                 <header className="campaign-card-header">
                   <div>
                     <h3>{campaign.name}</h3>
@@ -1388,35 +1668,48 @@ function CampaignsPage({
                     <button
                       type="button"
                       className="ghost"
-                      onClick={() => onSelectCampaign?.(campaign.id)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onSelectCampaign?.(campaign.id)
+                      }}
                       disabled={isCurrent}
                     >
                       {isCurrent ? 'Active' : 'Set active'}
                     </button>
-                    {manageAllowed && (
-                      <>
-                        <button type="button" className="ghost" onClick={() => openEdit(campaign)}>
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost destructive"
-                          onClick={() => requestDelete(campaign)}
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
                   </div>
                 </header>
 
                 {campaign.summary && <p className="campaign-summary">{campaign.summary}</p>}
 
-                <div className="campaign-party">
-                  <h4>Party</h4>
-                  {Array.isArray(campaign.assignments) && campaign.assignments.length > 0 ? (
+                <dl className="card-meta">
+                  <div>
+                    <dt>World</dt>
+                    <dd>{getWorldName(campaign.worldId)}</dd>
+                  </div>
+                  <div>
+                    <dt>Last updated</dt>
+                    <dd>{formatCardTimestamp(campaign.updatedAt)}</dd>
+                  </div>
+                </dl>
+
+                <div className="campaign-group">
+                  <h4>DM</h4>
+                  {cardDMs.length > 0 ? (
                     <ul>
-                      {campaign.assignments.map((assignment) => (
+                      {cardDMs.map((assignment) => (
+                        <li key={assignment.id}>{getUserName(assignment.userId)}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="helper-text">No dungeon master assigned.</p>
+                  )}
+                </div>
+
+                <div className="campaign-group">
+                  <h4>Party</h4>
+                  {cardParty.length > 0 ? (
+                    <ul>
+                      {cardParty.map((assignment) => (
                         <li key={assignment.id}>
                           <span className="party-member">{getUserName(assignment.userId)}</span>
                           <span className="party-role">{getRoleName(assignment.roleId)}</span>
@@ -1424,7 +1717,7 @@ function CampaignsPage({
                       ))}
                     </ul>
                   ) : (
-                    <p className="helper-text">No players linked yet.</p>
+                    <p className="helper-text">No party members linked yet.</p>
                   )}
                 </div>
               </article>
@@ -1434,36 +1727,36 @@ function CampaignsPage({
       )}
 
       <RecordDrawer
-        open={editor.open}
-        title={editor.mode === 'edit' ? 'Edit campaign' : 'Create campaign'}
-        onClose={closeEditor}
+        open={createDrawerOpen}
+        title="Create campaign"
+        onClose={closeCreateDrawer}
         actions={
           <>
-            <button type="button" className="ghost" onClick={closeEditor}>
+            <button type="button" className="ghost" onClick={closeCreateDrawer}>
               Cancel
             </button>
-            <button type="submit" className="primary" form={formId}>
-              {editor.mode === 'edit' ? 'Save' : 'Submit'}
+            <button type="submit" className="primary" form={createFormId}>
+              Submit
             </button>
           </>
         }
       >
-        <form id={formId} className="drawer-form" onSubmit={handleSubmit}>
+        <form id={createFormId} className="drawer-form" onSubmit={handleSubmitCreate}>
           <label>
             <span>Campaign name</span>
             <input
               required
               type="text"
-              value={form.name}
-              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              value={createForm.name}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, name: event.target.value }))}
             />
           </label>
 
           <label>
             <span>Status</span>
             <select
-              value={form.status}
-              onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value }))}
+              value={createForm.status}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, status: event.target.value }))}
             >
               <option value="Planning">Planning</option>
               <option value="Active">Active</option>
@@ -1473,11 +1766,26 @@ function CampaignsPage({
           </label>
 
           <label>
+            <span>World</span>
+            <select
+              value={createForm.worldId}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, worldId: event.target.value }))}
+            >
+              <option value="">Unassigned</option>
+              {worldOptions.map((world) => (
+                <option key={world.id} value={world.id}>
+                  {world.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
             <span>Summary</span>
             <textarea
               rows={4}
-              value={form.summary}
-              onChange={(event) => setForm((prev) => ({ ...prev, summary: event.target.value }))}
+              value={createForm.summary}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, summary: event.target.value }))}
             />
           </label>
 
@@ -1487,64 +1795,200 @@ function CampaignsPage({
               <button
                 type="button"
                 className="ghost"
-                onClick={handleAddAssignment}
+                onClick={handleAddCreateAssignment}
                 disabled={userOptions.length === 0 || roleOptions.length === 0}
               >
                 Add assignment
               </button>
             </div>
 
-            {form.assignments.length === 0 && (
+            {createForm.assignments.length === 0 ? (
               <p className="helper-text">Invite players and storytellers to this campaign.</p>
+            ) : (
+              renderAssignmentEditor(createForm.assignments, handleUpdateCreateAssignment, handleRemoveCreateAssignment, 'create')
             )}
+          </div>
+        </form>
+      </RecordDrawer>
 
-            {form.assignments.map((assignment) => (
-              <div key={assignment.id} className="assignment-row">
-                <label>
-                  <span>User</span>
-                  <select
-                    value={assignment.userId}
-                    onChange={(event) =>
-                      handleUpdateAssignment(assignment.id, 'userId', event.target.value)
-                    }
-                  >
-                    <option value="">Select user</option>
-                    {userOptions.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+      <RecordDrawer
+        open={recordDrawer.open}
+        title={
+          <div className="campaign-drawer-title">
+            <span>{recordDrawerTitle}</span>
+            {canManageCurrent && !recordDrawer.editing && (
+              <button type="button" className="icon-button pencil-button" onClick={beginEditRecord}>
+                <span aria-hidden="true">✏️</span>
+                <span className="sr-only">Edit campaign</span>
+              </button>
+            )}
+          </div>
+        }
+        onClose={closeRecord}
+        actions={
+          recordDrawer.editing ? (
+            <>
+              <button type="button" className="ghost" onClick={cancelEditRecord}>
+                Cancel
+              </button>
+              <button type="submit" className="primary" form={recordFormId}>
+                Save
+              </button>
+            </>
+          ) : (
+            <>
+              {canManageCurrent && currentRecord && (
+                <button
+                  type="button"
+                  className="ghost destructive"
+                  onClick={() => requestDelete(currentRecord)}
+                >
+                  Delete
+                </button>
+              )}
+              <button type="button" className="ghost" onClick={closeRecord}>
+                Close
+              </button>
+            </>
+          )
+        }
+      >
+        {recordDrawer.editing ? (
+          <form id={recordFormId} className="drawer-form" onSubmit={handleSubmitRecord}>
+            <label>
+              <span>Campaign name</span>
+              <input
+                required
+                type="text"
+                value={recordForm.name}
+                onChange={(event) => setRecordForm((prev) => ({ ...prev, name: event.target.value }))}
+              />
+            </label>
 
-                <label>
-                  <span>Role</span>
-                  <select
-                    value={assignment.roleId}
-                    onChange={(event) =>
-                      handleUpdateAssignment(assignment.id, 'roleId', event.target.value)
-                    }
-                  >
-                    <option value="">Select role</option>
-                    {roleOptions.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+            <label>
+              <span>Status</span>
+              <select
+                value={recordForm.status}
+                onChange={(event) => setRecordForm((prev) => ({ ...prev, status: event.target.value }))}
+              >
+                <option value="Planning">Planning</option>
+                <option value="Active">Active</option>
+                <option value="On Hold">On Hold</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </label>
 
+            <label>
+              <span>World</span>
+              <select
+                value={recordForm.worldId}
+                onChange={(event) => setRecordForm((prev) => ({ ...prev, worldId: event.target.value }))}
+              >
+                <option value="">Unassigned</option>
+                {worldOptions.map((world) => (
+                  <option key={world.id} value={world.id}>
+                    {world.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Summary</span>
+              <textarea
+                rows={4}
+                value={recordForm.summary}
+                onChange={(event) => setRecordForm((prev) => ({ ...prev, summary: event.target.value }))}
+              />
+            </label>
+
+            <div className="drawer-subsection">
+              <div className="drawer-subsection-header">
+                <h4>Assignments</h4>
                 <button
                   type="button"
                   className="ghost"
-                  onClick={() => handleRemoveAssignment(assignment.id)}
+                  onClick={handleAddRecordAssignment}
+                  disabled={userOptions.length === 0 || roleOptions.length === 0}
                 >
-                  Remove
+                  Add assignment
                 </button>
               </div>
-            ))}
+
+              {recordForm.assignments.length === 0 ? (
+                <p className="helper-text">Invite players and storytellers to this campaign.</p>
+              ) : (
+                renderAssignmentEditor(recordForm.assignments, handleUpdateRecordAssignment, handleRemoveRecordAssignment, 'edit')
+              )}
+            </div>
+          </form>
+        ) : currentRecord ? (
+          <div className="campaign-record">
+            <dl className="campaign-record-meta">
+              <div>
+                <dt>Status</dt>
+                <dd>{describeStatus(currentRecord.status)}</dd>
+              </div>
+              <div>
+                <dt>World</dt>
+                <dd>{getWorldName(currentRecord.worldId)}</dd>
+              </div>
+              <div>
+                <dt>Last updated</dt>
+                <dd>{formatTimestamp(currentRecord.updatedAt)}</dd>
+              </div>
+            </dl>
+
+            {currentRecord.summary && (
+              <p className="campaign-record-summary">{currentRecord.summary}</p>
+            )}
+
+            {onSelectCampaign && (
+              <div className="campaign-record-actions">
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => onSelectCampaign(currentRecord.id)}
+                  disabled={currentCampaignId === currentRecord.id}
+                >
+                  {currentCampaignId === currentRecord.id ? 'Active campaign' : 'Set as active'}
+                </button>
+              </div>
+            )}
+
+            <div className="campaign-record-groups">
+              <section>
+                <h4>DM</h4>
+                {dungeonMasters.length > 0 ? (
+                  <ul>
+                    {dungeonMasters.map((assignment) => (
+                      <li key={assignment.id}>{getUserName(assignment.userId)}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="helper-text">No dungeon master assigned.</p>
+                )}
+              </section>
+              <section>
+                <h4>Party</h4>
+                {partyMembers.length > 0 ? (
+                  <ul>
+                    {partyMembers.map((assignment) => (
+                      <li key={assignment.id}>
+                        <span className="party-member">{getUserName(assignment.userId)}</span>
+                        <span className="party-role">{getRoleName(assignment.roleId)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="helper-text">No party members linked yet.</p>
+                )}
+              </section>
+            </div>
           </div>
-        </form>
+        ) : (
+          <p className="helper-text">This campaign is no longer available.</p>
+        )}
       </RecordDrawer>
 
       <ConfirmDialog
@@ -1860,7 +2304,8 @@ function PlatformAdmin({
   onSaveRole,
   onDeleteRole,
   onSaveCampaign,
-  onDeleteCampaign
+  onDeleteCampaign,
+  worlds
 }) {
   const [userDrawer, setUserDrawer] = useState({ open: false, mode: 'create', record: null })
   const [roleDrawer, setRoleDrawer] = useState({ open: false, mode: 'create', record: null })
@@ -1879,7 +2324,13 @@ function PlatformAdmin({
     status: 'Invited'
   })
   const [roleForm, setRoleForm] = useState({ name: '', description: '' })
-  const [campaignForm, setCampaignForm] = useState({ name: '', status: 'Draft', summary: '', assignments: [] })
+  const [campaignForm, setCampaignForm] = useState({
+    name: '',
+    status: 'Planning',
+    summary: '',
+    worldId: worlds[0]?.id ?? '',
+    assignments: []
+  })
 
   const [confirmState, setConfirmState] = useState({
     open: false,
@@ -1889,6 +2340,36 @@ function PlatformAdmin({
     detail: '',
     onConfirm: null
   })
+
+  const worldNameLookup = useMemo(() => {
+    const map = new Map()
+    worlds.forEach((world) => map.set(world.id, world.name))
+    return map
+  }, [worlds])
+
+  const worldOptions = useMemo(
+    () => worlds.map((world) => ({ id: world.id, name: world.name })),
+    [worlds]
+  )
+
+  const getWorldName = useCallback(
+    (worldId) => worldNameLookup.get(worldId) || 'Unassigned world',
+    [worldNameLookup]
+  )
+
+  const campaignUserOptions = useMemo(
+    () =>
+      users.map((user) => ({
+        id: user.id,
+        name: user.displayName || user.username || 'Unassigned'
+      })),
+    [users]
+  )
+
+  const campaignRoleOptions = useMemo(
+    () => roles.map((role) => ({ id: role.id, name: role.name })),
+    [roles]
+  )
 
   const closeConfirm = () => {
     setConfirmState({
@@ -1954,9 +2435,15 @@ function PlatformAdmin({
 
   useEffect(() => {
     if (!campaignDrawer.open) {
-      setCampaignForm({ name: '', status: 'Draft', summary: '', assignments: [] })
+      setCampaignForm({
+        name: '',
+        status: 'Planning',
+        summary: '',
+        worldId: worlds[0]?.id ?? '',
+        assignments: []
+      })
     }
-  }, [campaignDrawer.open])
+  }, [campaignDrawer.open, worlds])
 
   const openCreateUser = () => {
     setUserDrawer({ open: true, mode: 'create', record: null })
@@ -1985,6 +2472,13 @@ function PlatformAdmin({
   }
 
   const openCreateCampaign = () => {
+    setCampaignForm({
+      name: '',
+      status: 'Planning',
+      summary: '',
+      worldId: worlds[0]?.id ?? '',
+      assignments: []
+    })
     setCampaignDrawer({ open: true, mode: 'create', record: null })
   }
 
@@ -1994,6 +2488,7 @@ function PlatformAdmin({
       name: record.name,
       status: record.status,
       summary: record.summary,
+      worldId: record.worldId || '',
       assignments: record.assignments.map((assignment) => ({ ...assignment }))
     })
     setCampaignDrawer({ open: true, mode: 'edit', record })
@@ -2048,6 +2543,7 @@ function PlatformAdmin({
     () => [
       { id: 'name', label: 'Campaign', accessor: (record) => record.name },
       { id: 'status', label: 'Status', accessor: (record) => record.status },
+      { id: 'world', label: 'World', accessor: (record) => getWorldName(record.worldId) },
       {
         id: 'summary',
         label: 'Summary',
@@ -2065,7 +2561,7 @@ function PlatformAdmin({
         accessor: (record) => new Date(record.updatedAt).toLocaleString()
       }
     ],
-    []
+    [getWorldName]
   )
 
   const handleSubmitUser = (event) => {
@@ -2094,7 +2590,11 @@ function PlatformAdmin({
       ...prev,
       assignments: [
         ...prev.assignments,
-        { id: newId('assignment'), userId: users[0]?.id ?? '', roleId: roles[0]?.id ?? '' }
+        {
+          id: newId('assignment'),
+          userId: campaignUserOptions[0]?.id ?? '',
+          roleId: campaignRoleOptions[0]?.id ?? ''
+        }
       ]
     }))
   }
@@ -2109,6 +2609,7 @@ function PlatformAdmin({
   }
 
   const handleRemoveCampaignAssignment = (assignmentId) => {
+    if (!window.confirm('Remove this assignment from the campaign?')) return
     setCampaignForm((prev) => ({
       ...prev,
       assignments: prev.assignments.filter((assignment) => assignment.id !== assignmentId)
@@ -2334,10 +2835,25 @@ function PlatformAdmin({
               value={campaignForm.status}
               onChange={(event) => setCampaignForm((prev) => ({ ...prev, status: event.target.value }))}
             >
-              <option value="Draft">Draft</option>
               <option value="Planning">Planning</option>
               <option value="Active">Active</option>
+              <option value="On Hold">On Hold</option>
               <option value="Completed">Completed</option>
+            </select>
+          </label>
+
+          <label>
+            <span>World</span>
+            <select
+              value={campaignForm.worldId}
+              onChange={(event) => setCampaignForm((prev) => ({ ...prev, worldId: event.target.value }))}
+            >
+              <option value="">Unassigned</option>
+              {worldOptions.map((world) => (
+                <option key={world.id} value={world.id}>
+                  {world.name}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -2357,59 +2873,72 @@ function PlatformAdmin({
                 type="button"
                 className="ghost"
                 onClick={handleAddCampaignAssignment}
-                disabled={users.length === 0 || roles.length === 0}
+                disabled={campaignUserOptions.length === 0 || campaignRoleOptions.length === 0}
               >
                 Add assignment
               </button>
             </div>
 
-            {campaignForm.assignments.length === 0 && <p className="helper-text">Link players and storytellers to the campaign.</p>}
-
-            {campaignForm.assignments.map((assignment) => (
-              <div key={assignment.id} className="assignment-row">
-                <label>
-                  <span>User</span>
-                  <select
-                    value={assignment.userId}
-                    onChange={(event) =>
-                      handleUpdateCampaignAssignment(assignment.id, 'userId', event.target.value)
-                    }
-                  >
-                    <option value="">Select user</option>
-                    {users.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  <span>Role</span>
-                  <select
-                    value={assignment.roleId}
-                    onChange={(event) =>
-                      handleUpdateCampaignAssignment(assignment.id, 'roleId', event.target.value)
-                    }
-                  >
-                    <option value="">Select role</option>
-                    {roles.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={() => handleRemoveCampaignAssignment(assignment.id)}
-                >
-                  Remove
-                </button>
+            {campaignForm.assignments.length === 0 ? (
+              <p className="helper-text">Link players and storytellers to the campaign.</p>
+            ) : (
+              <div className="assignment-table" role="table">
+                <div className="assignment-table-header" role="row">
+                  <span role="columnheader">Participant</span>
+                  <span role="columnheader">Role</span>
+                  <span className="assignment-table-actions" role="columnheader">Actions</span>
+                </div>
+                {campaignForm.assignments.map((assignment) => {
+                  const userFieldId = `admin-assignment-${assignment.id}-user`
+                  const roleFieldId = `admin-assignment-${assignment.id}-role`
+                  return (
+                    <div key={assignment.id} className="assignment-table-row" role="row">
+                      <label className="sr-only" htmlFor={userFieldId}>
+                        Participant
+                      </label>
+                      <select
+                        id={userFieldId}
+                        value={assignment.userId}
+                        onChange={(event) =>
+                          handleUpdateCampaignAssignment(assignment.id, 'userId', event.target.value)
+                        }
+                      >
+                        <option value="">Select user</option>
+                        {campaignUserOptions.map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.name}
+                          </option>
+                        ))}
+                      </select>
+                      <label className="sr-only" htmlFor={roleFieldId}>
+                        Role
+                      </label>
+                      <select
+                        id={roleFieldId}
+                        value={assignment.roleId}
+                        onChange={(event) =>
+                          handleUpdateCampaignAssignment(assignment.id, 'roleId', event.target.value)
+                        }
+                      >
+                        <option value="">Select role</option>
+                        {campaignRoleOptions.map((role) => (
+                          <option key={role.id} value={role.id}>
+                            {role.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => handleRemoveCampaignAssignment(assignment.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
+            )}
           </div>
         </form>
       </RecordDrawer>
