@@ -218,6 +218,107 @@ const newId = (prefix) => {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`
 }
 
+const classNames = (...values) => values.filter(Boolean).join(' ')
+
+const statusVariantFromStatus = (status) => {
+  const normalized = (status || '').toLowerCase()
+  if (normalized === 'planning') return 'planning'
+  if (normalized === 'active') return 'active'
+  if (normalized === 'archived') return 'archived'
+  if (normalized === 'completed') return 'archived'
+  if (normalized === 'on hold') return 'neutral'
+  return 'neutral'
+}
+
+const formatRelativeTime = (value) => {
+  if (!value) return '—'
+  const timestamp = new Date(value)
+  if (Number.isNaN(timestamp.getTime())) {
+    return '—'
+  }
+
+  const now = Date.now()
+  const diff = timestamp.getTime() - now
+  const absoluteDiff = Math.abs(diff)
+
+  const minute = 60 * 1000
+  const hour = 60 * minute
+  const day = 24 * hour
+  const week = 7 * day
+  const month = 30 * day
+  const year = 365 * day
+
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+
+  if (absoluteDiff > year) {
+    const valueYears = Math.round(diff / year)
+    return formatter.format(valueYears, 'year')
+  }
+  if (absoluteDiff > month) {
+    const valueMonths = Math.round(diff / month)
+    return formatter.format(valueMonths, 'month')
+  }
+  if (absoluteDiff > week) {
+    const valueWeeks = Math.round(diff / week)
+    return formatter.format(valueWeeks, 'week')
+  }
+  if (absoluteDiff > day) {
+    const valueDays = Math.round(diff / day)
+    return formatter.format(valueDays, 'day')
+  }
+  if (absoluteDiff > hour) {
+    const valueHours = Math.round(diff / hour)
+    return formatter.format(valueHours, 'hour')
+  }
+  const valueMinutes = Math.round(diff / minute)
+  if (valueMinutes === 0) {
+    return 'just now'
+  }
+  return formatter.format(valueMinutes, 'minute')
+}
+
+function Badge({ variant = 'neutral', children, className = '', ...props }) {
+  const classes = classNames('badge', `badge-${variant}`, className)
+  return (
+    <span className={classes} {...props}>
+      {children}
+    </span>
+  )
+}
+
+function Button({
+  variant = 'primary',
+  tone = 'default',
+  className = '',
+  type = 'button',
+  children,
+  ...props
+}) {
+  const classes = classNames('btn', `btn-${variant}`, tone === 'danger' && 'btn-danger', className)
+  return (
+    <button type={type} className={classes} {...props}>
+      {children}
+    </button>
+  )
+}
+
+function IconButton({ label, children, className = '', ...props }) {
+  const classes = classNames('btn', 'btn-icon', className)
+  return (
+    <button type="button" className={classes} aria-label={label} {...props}>
+      {children}
+    </button>
+  )
+}
+
+function Card({ as: Component = 'div', className = '', children, ...props }) {
+  return (
+    <Component className={classNames('surface-card', className)} {...props}>
+      {children}
+    </Component>
+  )
+}
+
 function App() {
   const storedState = useMemo(() => readStoredState(), [])
   const [session, setSession] = useState(() => {
@@ -1801,10 +1902,34 @@ function CampaignsPage({
     ? recordForm.name || currentRecord?.name || 'Edit campaign'
     : currentRecord?.name || 'Campaign details'
 
+  const recordDrawerHeading =
+    recordDrawer.editing || !currentRecord ? (
+      recordDrawerTitle
+    ) : (
+      <div className="campaign-detail-heading">
+        <div className="campaign-detail-heading-top">
+          <h3>{currentRecord.name}</h3>
+          <Badge variant={statusVariantFromStatus(currentRecord.status)}>
+            {describeStatus(currentRecord.status)}
+          </Badge>
+        </div>
+        <div className="campaign-detail-heading-meta">
+          <div>
+            <span className="detail-label">World</span>
+            <span className="detail-value">{getWorldName(currentRecord.worldId)}</span>
+          </div>
+          <div>
+            <span className="detail-label">Updated</span>
+            <span className="detail-value">{formatRelativeTime(currentRecord.updatedAt)}</span>
+          </div>
+        </div>
+      </div>
+    )
+
   const formatTimestamp = (value) =>
     value ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—'
 
-  const formatCardTimestamp = (value) => (value ? new Date(value).toLocaleDateString() : '—')
+  const formatCardTimestamp = (value) => formatRelativeTime(value)
 
   const { dungeonMasters, partyMembers } = useMemo(() => {
     if (!currentRecord) {
@@ -1884,121 +2009,91 @@ function CampaignsPage({
           </p>
         </div>
         {canCreateCampaigns && (
-          <button type="button" className="primary" onClick={openCreate}>
-            New campaign
-          </button>
+          <Button onClick={openCreate}>New campaign</Button>
         )}
       </header>
 
       {sortedCampaigns.length === 0 ? (
-        <div className="empty-state">
-          <h3>No campaigns yet</h3>
-          <p>Start a campaign to organise quests, players, and shared progress.</p>
-        </div>
+        <Card className="campaign-empty">
+          <div className="campaign-empty-illustration" aria-hidden="true">
+            📜
+          </div>
+          <h3>You’re not part of any campaigns yet.</h3>
+          <p>Spin up your first adventure to invite your party and set the scene.</p>
+          {canCreateCampaigns && (
+            <Button onClick={openCreate}>+ Create campaign</Button>
+          )}
+        </Card>
       ) : (
-        <div className="campaign-grid">
+        <div className="campaign-grid-modern">
           {sortedCampaigns.map((campaign) => {
             const isCurrent = currentCampaignId === campaign.id
             const { dungeonMasters: cardDMs, partyMembers: cardParty } = splitAssignments(campaign)
+            const dmNames = cardDMs.map((assignment) => getUserName(assignment.userId)).filter(Boolean)
+            const partyNames = cardParty.map((assignment) => getUserName(assignment.userId)).filter(Boolean)
+            const partyPreview = partyNames.slice(0, 3)
+            const remaining = Math.max(0, partyNames.length - partyPreview.length)
             return (
-              <article
-                key={campaign.id}
-                className="campaign-card campaign-card-clickable"
-                role="button"
-                tabIndex={0}
-                onClick={() => openRecord(campaign)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    openRecord(campaign)
-                  }
-                }}
-              >
-                <header className="campaign-card-header">
+              <Card key={campaign.id} className={classNames('campaign-card-modern', isCurrent && 'campaign-card-modern-active')}>
+                <div className="campaign-card-modern__header">
                   <div>
                     <h3>{campaign.name}</h3>
-                    <span className={`status-pill status-${(campaign.status || 'unknown').toLowerCase()}`}>
-                      {describeStatus(campaign.status)}
+                    <div className="campaign-card-modern__status">
+                      <span className="detail-label">Status</span>
+                      <Badge variant={statusVariantFromStatus(campaign.status)}>
+                        {describeStatus(campaign.status)}
+                      </Badge>
+                    </div>
+                  </div>
+                  <span className="campaign-card-modern__updated">Last updated {formatCardTimestamp(campaign.updatedAt)}</span>
+                </div>
+
+                {campaign.summary && <p className="campaign-card-modern__summary">{campaign.summary}</p>}
+
+                <div className="campaign-card-modern__meta">
+                  <div>
+                    <span className="detail-label">World</span>
+                    <span className="detail-value">{getWorldName(campaign.worldId)}</span>
+                  </div>
+                  <div>
+                    <span className="detail-label">DM</span>
+                    <span className="detail-value" aria-label="Dungeon Master">
+                      {dmNames.length > 0 ? dmNames.join(', ') : 'Unassigned'}
                     </span>
                   </div>
-                  <div className="card-actions">
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        onSelectCampaign?.(campaign.id)
-                      }}
-                      disabled={isCurrent}
-                    >
-                      {isCurrent ? 'Active' : 'Set active'}
-                    </button>
-                  </div>
-                </header>
-
-                {campaign.summary && <p className="campaign-summary">{campaign.summary}</p>}
-
-                <dl className="card-meta">
                   <div>
-                    <dt>World</dt>
-                    <dd>{getWorldName(campaign.worldId)}</dd>
+                    <span className="detail-label">Party</span>
+                    <div className="campaign-card-modern__party" aria-label="Party preview">
+                      {partyPreview.length > 0 ? (
+                        <>
+                          {partyPreview.map((name) => (
+                            <span key={name} className="party-chip">
+                              {name}
+                            </span>
+                          ))}
+                          {remaining > 0 && (
+                            <span className="party-chip party-chip--more">+{remaining}</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="detail-value muted">No players yet</span>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <dt>Last updated</dt>
-                    <dd>{formatCardTimestamp(campaign.updatedAt)}</dd>
-                  </div>
-                </dl>
-
-                <div className="campaign-group">
-                  <h4>DM</h4>
-                  {cardDMs.length > 0 ? (
-                    <ul>
-                      {cardDMs.map((assignment) => (
-                        <li key={assignment.id}>{getUserName(assignment.userId)}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="helper-text">No dungeon master assigned.</p>
-                  )}
                 </div>
 
-                <div className="campaign-group">
-                  <h4>Party</h4>
-                  {cardParty.length > 0 ? (
-                    <ul>
-                      {cardParty.map((assignment) => {
-                        const playerName = getUserName(assignment.userId)
-                        const charactersForPlayer = getCharactersForAssignment(campaign.id, assignment.userId)
-                        return (
-                          <li key={assignment.id} className="party-entry">
-                            <div className="party-entry-header">
-                              <span className="party-member">{playerName}</span>
-                              <span className="party-role">{getRoleName(assignment.roleId)}</span>
-                            </div>
-                            <div className="party-character-group">
-                              <span className="party-character-label">Characters</span>
-                              {charactersForPlayer.length > 0 ? (
-                                <ul className="party-character-list">
-                                  {charactersForPlayer.map((character) => (
-                                    <li key={character.id} className="party-character">
-                                      <span className="party-character-name">{character.name}</span>
-                                      <span className="party-character-player">Played by {playerName}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="party-character-empty">No character selected</p>
-                              )}
-                            </div>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  ) : (
-                    <p className="helper-text">No party members linked yet.</p>
-                  )}
+                <div className="campaign-card-modern__actions">
+                  <Button onClick={() => openRecord(campaign)}>View details</Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => onSelectCampaign?.(campaign.id)}
+                    disabled={isCurrent}
+                    aria-pressed={isCurrent}
+                  >
+                    {isCurrent ? 'Active campaign' : 'Set active'}
+                  </Button>
                 </div>
-              </article>
+              </Card>
             )
           })}
         </div>
@@ -2010,12 +2105,12 @@ function CampaignsPage({
         onClose={closeCreateDrawer}
         actions={
           <>
-            <button type="button" className="ghost" onClick={closeCreateDrawer}>
+            <Button variant="secondary" onClick={closeCreateDrawer}>
               Cancel
-            </button>
-            <button type="submit" className="primary" form={createFormId}>
+            </Button>
+            <Button type="submit" form={createFormId}>
               Submit
-            </button>
+            </Button>
           </>
         }
       >
@@ -2091,42 +2186,33 @@ function CampaignsPage({
 
       <RecordDrawer
         open={recordDrawer.open}
-        title={
-          <div className="campaign-drawer-title">
-            <span>{recordDrawerTitle}</span>
-            {canManageCurrent && !recordDrawer.editing && (
-              <button type="button" className="icon-button pencil-button" onClick={beginEditRecord}>
-                <span aria-hidden="true">✏️</span>
-                <span className="sr-only">Edit campaign</span>
-              </button>
-            )}
-          </div>
-        }
+        title={recordDrawerHeading}
         onClose={closeRecord}
         actions={
           recordDrawer.editing ? (
             <>
-              <button type="button" className="ghost" onClick={cancelEditRecord}>
+              <Button variant="secondary" onClick={cancelEditRecord}>
                 Cancel
-              </button>
-              <button type="submit" className="primary" form={recordFormId}>
+              </Button>
+              <Button type="submit" form={recordFormId}>
                 Save
-              </button>
+              </Button>
             </>
           ) : (
             <>
               {canManageCurrent && currentRecord && (
-                <button
-                  type="button"
-                  className="ghost destructive"
-                  onClick={() => requestDelete(currentRecord)}
-                >
-                  Delete
-                </button>
+                <>
+                  <Button variant="ghost" tone="danger" onClick={() => requestDelete(currentRecord)}>
+                    Delete
+                  </Button>
+                  <Button variant="secondary" onClick={beginEditRecord}>
+                    Edit
+                  </Button>
+                </>
               )}
-              <button type="button" className="ghost" onClick={closeRecord}>
+              <Button variant="secondary" onClick={closeRecord}>
                 Close
-              </button>
+              </Button>
             </>
           )
         }
@@ -2201,88 +2287,140 @@ function CampaignsPage({
             </div>
           </form>
         ) : currentRecord ? (
-          <div className="campaign-record">
-            <dl className="campaign-record-meta">
-              <div>
-                <dt>Status</dt>
-                <dd>{describeStatus(currentRecord.status)}</dd>
-              </div>
-              <div>
-                <dt>World</dt>
-                <dd>{getWorldName(currentRecord.worldId)}</dd>
-              </div>
-              <div>
-                <dt>Last updated</dt>
-                <dd>{formatTimestamp(currentRecord.updatedAt)}</dd>
-              </div>
-            </dl>
-
+          <div className="campaign-detail">
             {currentRecord.summary && (
-              <p className="campaign-record-summary">{currentRecord.summary}</p>
+              <p className="campaign-detail__summary">{currentRecord.summary}</p>
             )}
 
-            {onSelectCampaign && (
-              <div className="campaign-record-actions">
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={() => onSelectCampaign(currentRecord.id)}
-                  disabled={currentCampaignId === currentRecord.id}
-                >
-                  {currentCampaignId === currentRecord.id ? 'Active campaign' : 'Set as active'}
-                </button>
-              </div>
-            )}
+            <div className="campaign-detail__layout">
+              <div className="campaign-detail__column">
+                <Card className="detail-card" aria-label="Dungeon Master panel">
+                  <span className="detail-label">Dungeon Master</span>
+                  <div className="detail-value" aria-label="Dungeon Master">
+                    {dungeonMasters.length > 0
+                      ? dungeonMasters.map((assignment) => getUserName(assignment.userId)).join(', ')
+                      : 'Unassigned'}
+                  </div>
+                </Card>
 
-            <div className="campaign-record-groups">
-              <section>
-                <h4>DM</h4>
-                {dungeonMasters.length > 0 ? (
-                  <ul>
-                    {dungeonMasters.map((assignment) => (
-                      <li key={assignment.id}>{getUserName(assignment.userId)}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="helper-text">No dungeon master assigned.</p>
-                )}
-              </section>
-              <section>
-                <h4>Party</h4>
-                {partyMembers.length > 0 ? (
-                  <ul>
-                    {partyMembers.map((assignment) => {
-                      const playerName = getUserName(assignment.userId)
-                      const charactersForPlayer = getCharactersForAssignment(currentRecord.id, assignment.userId)
-                      return (
-                        <li key={assignment.id} className="party-entry">
-                          <div className="party-entry-header">
-                            <span className="party-member">{playerName}</span>
-                            <span className="party-role">{getRoleName(assignment.roleId)}</span>
+                <Card className="detail-card" aria-label="Party overview">
+                  <span className="detail-label">Party</span>
+                  {partyMembers.length > 0 ? (
+                    <ul className="party-overview" aria-label="Party list">
+                      {partyMembers.map((assignment) => (
+                        <li key={assignment.id} className="party-overview__item">
+                          <span className="party-overview__icon" aria-hidden="true">
+                            👤
+                          </span>
+                          <div>
+                            <span className="detail-value">{getUserName(assignment.userId)}</span>
+                            <span className="detail-label">{getRoleName(assignment.roleId)}</span>
                           </div>
-                          <div className="party-character-group">
-                            <span className="party-character-label">Characters</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="helper-text">No party members linked yet.</p>
+                  )}
+                </Card>
+              </div>
+
+              <div className="campaign-detail__column campaign-detail__column--players">
+                <div className="player-section-header">
+                  <h4>Players</h4>
+                  <Button
+                    onClick={() => {
+                      onSelectCampaign?.(currentRecord.id)
+                    }}
+                    aria-label={`Add character to ${currentRecord.name}`}
+                  >
+                    + Add character
+                  </Button>
+                </div>
+
+                {partyMembers.length > 0 ? (
+                  <div className="player-card-stack">
+                    {partyMembers.map((assignment, index) => {
+                      const playerName = getUserName(assignment.userId)
+                      const roleName = getRoleName(assignment.roleId)
+                      const charactersForPlayer = getCharactersForAssignment(currentRecord.id, assignment.userId)
+                      const isDungeonMaster = roleName === 'Dungeon Master'
+                      return (
+                        <details
+                          key={assignment.id}
+                          className={classNames(
+                            'player-card',
+                            index % 2 === 1 && 'player-card--alternate',
+                            isDungeonMaster && 'player-card--dm'
+                          )}
+                          open
+                        >
+                          <summary>
+                            <div className="player-card-header">
+                              <div className="player-card-title" aria-label={isDungeonMaster ? 'Dungeon Master' : 'Player'}>
+                                <span className="player-icon" aria-hidden="true">
+                                  {isDungeonMaster ? '👑' : '👤'}
+                                </span>
+                                <div>
+                                  <span className="player-name">{playerName}</span>
+                                  <span className="player-role">{roleName || 'Player'}</span>
+                                </div>
+                              </div>
+                              <div className="player-card-actions">
+                                {canManageCurrent && (
+                                  <IconButton
+                                    label={`Edit ${playerName}`}
+                                    onClick={(event) => {
+                                      event.preventDefault()
+                                      event.stopPropagation()
+                                      beginEditRecord()
+                                    }}
+                                  >
+                                    ✏️
+                                  </IconButton>
+                                )}
+                                <IconButton
+                                  label={`View ${playerName} profile`}
+                                  onClick={(event) => {
+                                    event.preventDefault()
+                                    event.stopPropagation()
+                                    onSelectCampaign?.(currentRecord.id)
+                                  }}
+                                >
+                                  🔍
+                                </IconButton>
+                              </div>
+                            </div>
+                          </summary>
+                          <div className="player-card-body">
+                            <span className="detail-label">Characters</span>
                             {charactersForPlayer.length > 0 ? (
-                              <ul className="party-character-list">
+                              <ul className="character-stack">
                                 {charactersForPlayer.map((character) => (
-                                  <li key={character.id} className="party-character">
-                                    <span className="party-character-name">{character.name}</span>
-                                    <span className="party-character-player">Played by {playerName}</span>
+                                  <li key={character.id} className="character-card" aria-label="Character">
+                                    <span className="character-name">{character.name}</span>
+                                    <span className="character-meta">
+                                      Level {character.level} · {character.className}
+                                    </span>
                                   </li>
                                 ))}
                               </ul>
                             ) : (
-                              <p className="party-character-empty">No character selected</p>
+                              <div className="character-empty" aria-label="Empty character slot">
+                                No character selected – add one
+                              </div>
                             )}
                           </div>
-                        </li>
+                        </details>
                       )
                     })}
-                  </ul>
+                  </div>
                 ) : (
-                  <p className="helper-text">No party members linked yet.</p>
+                  <Card className="detail-card">
+                    <p className="helper-text">Invite players to start building their characters.</p>
+                  </Card>
                 )}
-              </section>
+              </div>
             </div>
           </div>
         ) : (
@@ -3700,8 +3838,11 @@ function ConfirmDialog({ open, title, description, detail, confirmLabel, onCance
 }
 
 function RecordDrawer({ open, title, onClose, actions, children }) {
+  const drawerRef = useRef(null)
+  const previouslyFocusedElement = useRef(null)
+
   useEffect(() => {
-    if (!open) return
+    if (!open) return undefined
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
@@ -3713,6 +3854,65 @@ function RecordDrawer({ open, title, onClose, actions, children }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [open, onClose])
 
+  useEffect(() => {
+    if (!open) return undefined
+
+    previouslyFocusedElement.current = document.activeElement
+
+    const node = drawerRef.current
+    if (!node) return undefined
+
+    const focusableSelectors =
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+
+    const getFocusable = () =>
+      Array.from(node.querySelectorAll(focusableSelectors)).filter(
+        (element) => !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true'
+      )
+
+    const focusFirst = () => {
+      const [first] = getFocusable()
+      if (first) {
+        first.focus()
+      } else {
+        node.focus({ preventScroll: true })
+      }
+    }
+
+    focusFirst()
+
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Tab') return
+      const focusable = getFocusable()
+      if (focusable.length === 0) {
+        event.preventDefault()
+        return
+      }
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+
+      if (event.shiftKey) {
+        if (document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        }
+      } else if (document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    node.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      node.removeEventListener('keydown', handleKeyDown)
+      if (previouslyFocusedElement.current && typeof previouslyFocusedElement.current.focus === 'function') {
+        previouslyFocusedElement.current.focus()
+      }
+    }
+  }, [open])
+
   const headingId = useMemo(() => newId('drawer-title'), [])
 
   if (!open) return null
@@ -3720,17 +3920,20 @@ function RecordDrawer({ open, title, onClose, actions, children }) {
   return (
     <div className="drawer-layer">
       <div className="drawer-overlay" onClick={onClose} />
-      <aside className="record-drawer" role="dialog" aria-modal="true" aria-labelledby={headingId}>
+      <aside
+        ref={drawerRef}
+        className="record-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        tabIndex={-1}
+      >
         <header className="drawer-header">
           <div className="drawer-title">
             <h3 id={headingId}>{title}</h3>
           </div>
           <div className="drawer-header-actions">
-            {actions ?? (
-              <button type="button" className="ghost" onClick={onClose}>
-                Close
-              </button>
-            )}
+            {actions ?? <Button variant="secondary" onClick={onClose}>Close</Button>}
           </div>
         </header>
         <div className="drawer-body">{children}</div>
