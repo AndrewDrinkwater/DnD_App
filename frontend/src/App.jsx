@@ -26,6 +26,27 @@ const writeStoredState = (payload) => {
   }
 }
 
+const normalizePath = (path) => {
+  if (!path) return '/'
+  const trimmed = path.trim()
+  if (!trimmed) return '/'
+  const withLeading = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+  const withoutTrailing = withLeading.replace(/\/+$/, '')
+  return withoutTrailing === '' ? '/' : withoutTrailing
+}
+
+const pathMatches = (path, target) => {
+  if (!path || !target) return false
+  if (path === target) return true
+  return path.startsWith(`${target}/`)
+}
+
+const getCampaignIdFromPath = (path) => {
+  if (!pathMatches(path, '/campaigns')) return null
+  const segments = path.split('/').filter(Boolean)
+  return segments[1] || null
+}
+
 const seededRoles = [
   {
     id: 'role-system-admin',
@@ -151,26 +172,30 @@ const modules = [
     label: 'World',
     icon: '🌍',
     description: 'Curate worlds, lore, and locations that power your campaigns.',
-    requiredRoleNames: ['World Admin', 'System Administrator']
+    requiredRoleNames: ['World Admin', 'System Administrator'],
+    path: '/worlds'
   },
   {
     id: 'campaigns',
     label: 'Campaigns',
     icon: '📜',
-    description: 'Coordinate the adventures you are part of and align your party context.'
+    description: 'Coordinate the adventures you are part of and align your party context.',
+    path: '/campaigns'
   },
   {
     id: 'characters',
     label: 'Characters',
     icon: '🧙',
-    description: 'Manage your roster of heroes, sidekicks, and alter egos across worlds.'
+    description: 'Manage your roster of heroes, sidekicks, and alter egos across worlds.',
+    path: '/characters'
   },
   {
     id: 'platform-admin',
     label: 'Platform Admin',
     icon: '🛠️',
     description: 'Manage users, roles, and campaigns across the multiverse.',
-    requiredCapability: 'canViewPlatformAdmin'
+    requiredCapability: 'canViewPlatformAdmin',
+    path: '/admin'
   }
 ]
 
@@ -207,10 +232,14 @@ function App() {
 
     return { authenticatedUserId: null }
   })
-
-  const [activeModuleId, setActiveModuleId] = useState('platform-admin')
   const [activeSectionId, setActiveSectionId] = useState('users')
-  const [profileOpen, setProfileOpen] = useState(false)
+  const [currentPath, setCurrentPath] = useState(() => {
+    if (typeof window === 'undefined') return '/'
+    return normalizePath(window.location.pathname || '/')
+  })
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+
+  const currentPathRef = useRef(currentPath)
 
   const [roles, setRoles] = useState(() => (Array.isArray(storedState?.roles) ? storedState.roles : seededRoles))
   const [users, setUsers] = useState(() => (Array.isArray(storedState?.users) ? storedState.users : seededUsers))
@@ -243,7 +272,47 @@ function App() {
   const [sidebarHovered, setSidebarHovered] = useState(false)
   const [authError, setAuthError] = useState(null)
   const headerRef = useRef(null)
+  const profileMenuRef = useRef(null)
   const authenticatedUserId = session?.authenticatedUserId ?? null
+
+  useEffect(() => {
+    currentPathRef.current = currentPath
+  }, [currentPath])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const handlePopState = () => {
+      setCurrentPath(normalizePath(window.location.pathname || '/'))
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  const navigate = useCallback((nextPath, { replace = false } = {}) => {
+    if (typeof window === 'undefined') return
+    const normalized = normalizePath(nextPath)
+    if (replace) {
+      if (normalized === currentPathRef.current) {
+        return
+      }
+      window.history.replaceState({}, '', normalized)
+      setCurrentPath(normalized)
+      return
+    }
+    if (normalized === currentPathRef.current) {
+      return
+    }
+    window.history.pushState({}, '', normalized)
+    setCurrentPath(normalized)
+  }, [])
+
+  useEffect(() => {
+    if (!authenticatedUserId) {
+      navigate('/', { replace: true })
+    }
+  }, [authenticatedUserId, navigate])
+
+  const campaignRouteId = useMemo(() => getCampaignIdFromPath(currentPath), [currentPath])
 
   const resolvedCurrentUser = useMemo(
     () => (authenticatedUserId ? users.find((user) => user.id === authenticatedUserId) ?? null : null),
@@ -396,12 +465,13 @@ function App() {
   useEffect(() => {
     if (authenticatedUserId && !resolvedCurrentUser) {
       setSession({ authenticatedUserId: null })
-      setProfileOpen(false)
-      setActiveModuleId('platform-admin')
       setActiveSectionId('users')
       setAuthError('Your account is no longer available. Please sign in again.')
+      setProfileMenuOpen(false)
+      setAppContext({ campaignId: '', characterId: '' })
+      navigate('/', { replace: true })
     }
-  }, [authenticatedUserId, resolvedCurrentUser])
+  }, [authenticatedUserId, resolvedCurrentUser, navigate])
 
   useEffect(() => {
     if (!appContext.campaignId) return
@@ -430,12 +500,6 @@ function App() {
     })
   }, [users, roles, campaigns, worlds, characters, session, appContext, sidebarPinned])
 
-  useEffect(() => {
-    if (!permissions.canViewPlatformAdmin) {
-      setActiveModuleId(null)
-    }
-  }, [permissions.canViewPlatformAdmin])
-
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return undefined
 
@@ -462,8 +526,6 @@ function App() {
     }
   }, [])
 
-  const activeModule = useMemo(() => modules.find((item) => item.id === activeModuleId) || null, [activeModuleId])
-
   const sidebarModules = useMemo(
     () =>
       modules.filter((module) => {
@@ -478,31 +540,74 @@ function App() {
     [permissions, assignedRoleNames]
   )
 
+  const activeModuleId = useMemo(() => {
+    const match = sidebarModules.find((module) => pathMatches(currentPath, module.path))
+    return match?.id ?? null
+  }, [sidebarModules, currentPath])
+
+  const defaultModulePath = useMemo(() => {
+    if (sidebarModules.length > 0) {
+      return sidebarModules[0].path
+    }
+    return '/profile'
+  }, [sidebarModules])
+
   useEffect(() => {
-    if (profileOpen) return
-    if (sidebarModules.length === 0) {
-      if (activeModuleId !== null) {
-        setActiveModuleId(null)
-      }
+    if (currentPath === '/') {
+      navigate(defaultModulePath, { replace: true })
+    }
+  }, [currentPath, defaultModulePath, navigate])
+
+  useEffect(() => {
+    const isModuleRoute = modules.some((module) => pathMatches(currentPath, module.path))
+    if (!isModuleRoute) {
       return
     }
-    if (!activeModuleId || !sidebarModules.some((module) => module.id === activeModuleId)) {
-      const nextId = sidebarModules[0].id
-      if (nextId !== activeModuleId) {
-        setActiveModuleId(nextId)
+    if (activeModuleId) {
+      return
+    }
+    if (sidebarModules.length > 0) {
+      navigate(sidebarModules[0].path, { replace: true })
+    } else {
+      navigate('/profile', { replace: true })
+    }
+  }, [currentPath, activeModuleId, sidebarModules, navigate])
+
+  useEffect(() => {
+    if (!profileMenuOpen) return undefined
+    const handlePointer = (event) => {
+      if (!profileMenuRef.current) return
+      if (profileMenuRef.current.contains(event.target)) return
+      setProfileMenuOpen(false)
+    }
+    const handleKey = (event) => {
+      if (event.key === 'Escape') {
+        setProfileMenuOpen(false)
       }
     }
-  }, [sidebarModules, activeModuleId, profileOpen])
+    window.addEventListener('mousedown', handlePointer)
+    window.addEventListener('touchstart', handlePointer)
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      window.removeEventListener('mousedown', handlePointer)
+      window.removeEventListener('touchstart', handlePointer)
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [profileMenuOpen])
+
+  useEffect(() => {
+    setProfileMenuOpen(false)
+  }, [currentPath])
 
   const handleLogout = () => {
     setSession({ authenticatedUserId: null })
-    setProfileOpen(false)
-    setActiveModuleId('platform-admin')
     setActiveSectionId('users')
     setAuthError('You have been signed out. Sign in again to continue.')
     setAppContext({ campaignId: '', characterId: '' })
     setSidebarMobileOpen(false)
     setSidebarHovered(false)
+    setProfileMenuOpen(false)
+    navigate('/', { replace: true })
   }
 
   const handleAuthenticate = ({ identifier, password }) => {
@@ -527,11 +632,11 @@ function App() {
     }
 
     setSession({ authenticatedUserId: matchedUser.id })
-    setActiveModuleId('platform-admin')
     setActiveSectionId('users')
-    setProfileOpen(false)
+    setProfileMenuOpen(false)
     setAuthError(null)
     setSidebarMobileOpen(false)
+    navigate('/', { replace: true })
     return true
   }
 
@@ -761,6 +866,121 @@ function App() {
     )
   }
 
+  const canCreateCampaigns = useMemo(
+    () =>
+      assignedRoleNames.includes('Dungeon Master') ||
+      assignedRoleNames.includes('System Administrator'),
+    [assignedRoleNames]
+  )
+
+  const handleRouteCampaignChange = useCallback(
+    (nextId) => {
+      if (nextId) {
+        navigate(`/campaigns/${nextId}`)
+      } else {
+        navigate('/campaigns')
+      }
+    },
+    [navigate]
+  )
+
+  const profileReturnHandler = sidebarModules.length > 0 ? () => navigate(defaultModulePath) : undefined
+
+  let mainContent = null
+
+  if (currentPath === '/profile') {
+    mainContent = (
+      <MyProfile
+        name={currentUserDisplayName}
+        title={currentUserTitle}
+        email={currentUserEmail}
+        status={currentUserStatus}
+        username={resolvedCurrentUser?.username}
+        roleNames={currentUserRoleNames}
+        onClose={profileReturnHandler}
+        onLogout={handleLogout}
+        lastUpdated={resolvedCurrentUser?.updatedAt}
+        preferences={currentUserPreferences}
+      />
+    )
+  } else if (pathMatches(currentPath, '/worlds')) {
+    mainContent = (
+      <WorldPage worlds={worlds} onSaveWorld={handleSaveWorld} onDeleteWorld={handleDeleteWorld} />
+    )
+  } else if (pathMatches(currentPath, '/campaigns')) {
+    mainContent = (
+      <CampaignsPage
+        accessibleCampaigns={accessibleCampaigns}
+        onSaveCampaign={handleSaveCampaign}
+        onDeleteCampaign={handleDeleteCampaign}
+        currentUserId={authenticatedUserId}
+        roles={roles}
+        users={users}
+        isSystemAdmin={isSystemAdmin}
+        onSelectCampaign={(campaignId) =>
+          setAppContext((prev) => ({ ...prev, campaignId }))
+        }
+        currentCampaignId={appContext.campaignId}
+        worlds={worlds}
+        canCreateCampaigns={canCreateCampaigns}
+        routeCampaignId={campaignRouteId}
+        onRouteChange={handleRouteCampaignChange}
+      />
+    )
+  } else if (pathMatches(currentPath, '/characters')) {
+    mainContent = (
+      <CharactersPage
+        characters={characters}
+        campaigns={campaigns}
+        currentUserId={authenticatedUserId}
+        onSaveCharacter={handleSaveCharacter}
+        onDeleteCharacter={handleDeleteCharacter}
+        appCampaignId={appContext.campaignId}
+        accessibleCampaigns={accessibleCampaigns}
+        currentCharacterId={appContext.characterId}
+        onSelectCharacter={(characterId) =>
+          setAppContext((prev) => ({ ...prev, characterId }))
+        }
+        onSelectCampaign={(campaignId) =>
+          setAppContext((prev) => ({ ...prev, campaignId }))
+        }
+      />
+    )
+  } else if (pathMatches(currentPath, '/admin')) {
+    mainContent = permissions.canViewPlatformAdmin ? (
+      <PlatformAdmin
+        activeSectionId={activeSectionId}
+        onSectionChange={setActiveSectionId}
+        users={users}
+        roles={roles}
+        campaigns={campaigns}
+        permissions={permissions}
+        onSaveUser={handleSaveUser}
+        onDeleteUser={handleDeleteUser}
+        onSaveRole={handleSaveRole}
+        onDeleteRole={handleDeleteRole}
+        onSaveCampaign={handleSaveCampaign}
+        onDeleteCampaign={handleDeleteCampaign}
+        worlds={worlds}
+      />
+    ) : (
+      <div className="empty-state">
+        <h2>Access restricted</h2>
+        <p>You currently do not have permission to administer the platform.</p>
+      </div>
+    )
+  } else {
+    mainContent = (
+      <div className="empty-state">
+        <h2>Page not found</h2>
+        <p>The page you are trying to reach could not be found.</p>
+        <button type="button" className="primary" onClick={() => navigate(defaultModulePath)}>
+          Go to workspace
+        </button>
+      </div>
+    )
+  }
+
   if (!authenticatedUserId) {
     return (
       <LoginPage
@@ -791,9 +1011,16 @@ function App() {
                 <span>Campaign</span>
                 <select
                   value={appContext.campaignId}
-                  onChange={(event) =>
-                    setAppContext((prev) => ({ ...prev, campaignId: event.target.value }))
-                  }
+                  onChange={(event) => {
+                    const nextCampaign = event.target.value
+                    setAppContext((prev) => ({
+                      campaignId: nextCampaign,
+                      characterId:
+                        nextCampaign === '' || nextCampaign !== prev.campaignId
+                          ? ''
+                          : prev.characterId
+                    }))
+                  }}
                 >
                   <option value="">No campaign selected</option>
                   {accessibleCampaigns.map((campaign) => (
@@ -807,9 +1034,20 @@ function App() {
                 <span>Character</span>
                 <select
                   value={appContext.characterId}
-                  onChange={(event) =>
-                    setAppContext((prev) => ({ ...prev, characterId: event.target.value }))
-                  }
+                  onChange={(event) => {
+                    const nextCharacterId = event.target.value
+                    if (!nextCharacterId) {
+                      setAppContext((prev) => ({ ...prev, characterId: '', campaignId: prev.campaignId }))
+                      return
+                    }
+                    const selectedCharacter = myCharacters.find(
+                      (character) => character.id === nextCharacterId
+                    )
+                    setAppContext({
+                      characterId: nextCharacterId,
+                      campaignId: selectedCharacter?.campaignId || ''
+                    })
+                  }}
                 >
                   <option value="">No character selected</option>
                   {myCharacters.map((character) => (
@@ -820,23 +1058,59 @@ function App() {
                 </select>
               </label>
             </div>
-            <button
-              type="button"
-              className="current-user-button"
-              onClick={() => {
-                setProfileOpen(true)
-                setSidebarMobileOpen(false)
-              }}
-              aria-label="Open my profile"
-            >
-              <span className="user-avatar" aria-hidden="true">
-                {currentUserInitials}
-              </span>
-              <span className="user-meta">
-                <span className="user-name">{currentUserDisplayName}</span>
-                <span className="user-role">{currentUserRoleNames.join(', ')}</span>
-              </span>
-            </button>
+            <div className="current-user-menu" ref={profileMenuRef}>
+              <button
+                type="button"
+                className="current-user-button"
+                onClick={() => {
+                  setProfileMenuOpen((prev) => !prev)
+                  setSidebarMobileOpen(false)
+                }}
+                aria-haspopup="menu"
+                aria-expanded={profileMenuOpen}
+                aria-label="Open profile menu"
+              >
+                <span className="user-avatar" aria-hidden="true">
+                  {currentUserInitials}
+                </span>
+                <span className="user-meta">
+                  <span className="user-name">{currentUserDisplayName}</span>
+                  <span className="user-role">{currentUserRoleNames.join(', ')}</span>
+                </span>
+              </button>
+              {profileMenuOpen && (
+                <div className="profile-dropdown" role="menu">
+                  <div className="profile-overview">
+                    <span className="profile-overview-name">{currentUserDisplayName}</span>
+                    <span className="profile-overview-role">{currentUserRoleNames.join(', ')}</span>
+                    <span className="profile-overview-email">{currentUserEmail}</span>
+                  </div>
+                  <div className="profile-overview-status">
+                    <span className="status-pill">{currentUserStatus}</span>
+                    <span className="profile-overview-title">{currentUserTitle}</span>
+                  </div>
+                  <div className="profile-actions">
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => {
+                        setProfileMenuOpen(false)
+                        navigate('/profile')
+                      }}
+                    >
+                      Edit profile
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost destructive"
+                      onClick={handleLogout}
+                    >
+                      Log out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -848,47 +1122,48 @@ function App() {
           onMouseLeave={handleSidebarMouseLeave}
           aria-label="Primary navigation sidebar"
         >
-          <div className="sidebar-header">
+          <button
+            type="button"
+            className="icon-button sidebar-close"
+            onClick={() => setSidebarMobileOpen(false)}
+            aria-label="Close navigation"
+            title="Close navigation"
+          >
+            ×
+          </button>
+          <nav className="sidebar-nav" aria-label="Primary navigation">
             {showSidebarPinToggle && (
               <button
                 type="button"
-                className={`icon-button sidebar-pin-toggle${sidebarPinned ? ' active' : ''}`}
+                className={`sidebar-pin-inline sidebar-pin-toggle${sidebarPinned ? ' active' : ''}`}
                 onClick={() => setSidebarPinned((prev) => !prev)}
                 aria-pressed={sidebarPinned}
                 aria-label={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
                 title={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path
-                    d="M8 4H16L15.25 9H18L12 15L6 9H8.75Z"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    stroke="currentColor"
-                    fill="none"
-                  />
-                  <path
-                    d="M12 15V21"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    stroke="currentColor"
-                    fill="none"
-                  />
-                </svg>
+                <span className="sidebar-pin-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path
+                      d="M8 4H16L15.25 9H18L12 15L6 9H8.75Z"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      stroke="currentColor"
+                      fill="none"
+                    />
+                    <path
+                      d="M12 15V21"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      stroke="currentColor"
+                      fill="none"
+                    />
+                  </svg>
+                </span>
+                {!isSidebarCollapsed && <span className="sidebar-pin-label">Pin menu</span>}
               </button>
             )}
-            <button
-              type="button"
-              className="icon-button sidebar-close"
-              onClick={() => setSidebarMobileOpen(false)}
-              aria-label="Close navigation"
-              title="Close navigation"
-            >
-              ×
-            </button>
-          </div>
-          <nav className="sidebar-nav" aria-label="Primary navigation">
             {sidebarModules.length === 0 && <p className="sidebar-empty">No modules available for your role.</p>}
             {sidebarModules.map((module) => {
               const isActive = module.id === activeModuleId
@@ -901,9 +1176,9 @@ function App() {
                   aria-label={module.label}
                   title={isSidebarCollapsed ? module.label : undefined}
                   onClick={() => {
-                    setProfileOpen(false)
-                    setActiveModuleId(module.id)
+                    setProfileMenuOpen(false)
                     setSidebarMobileOpen(false)
+                    navigate(module.path)
                   }}
                 >
                   <span className="sidebar-icon" aria-hidden="true">
@@ -925,95 +1200,9 @@ function App() {
         )}
 
         <div className="shell-main">
-          <main className="module-content">
-          {profileOpen ? (
-            <MyProfile
-              name={currentUserDisplayName}
-              title={currentUserTitle}
-              email={currentUserEmail}
-              status={currentUserStatus}
-              username={resolvedCurrentUser?.username}
-              roleNames={currentUserRoleNames}
-              onClose={() => setProfileOpen(false)}
-              onLogout={handleLogout}
-              lastUpdated={resolvedCurrentUser?.updatedAt}
-              preferences={currentUserPreferences}
-            />
-          ) : (
-            <>
-              {activeModuleId === 'world' && (
-                <WorldPage
-                  worlds={worlds}
-                  onSaveWorld={handleSaveWorld}
-                  onDeleteWorld={handleDeleteWorld}
-                />
-              )}
-
-              {activeModuleId === 'campaigns' && (
-                <CampaignsPage
-                  accessibleCampaigns={accessibleCampaigns}
-                  onSaveCampaign={handleSaveCampaign}
-                  onDeleteCampaign={handleDeleteCampaign}
-                  currentUserId={authenticatedUserId}
-                  roles={roles}
-                  users={users}
-                  isSystemAdmin={isSystemAdmin}
-                  onSelectCampaign={(campaignId) =>
-                    setAppContext((prev) => ({ ...prev, campaignId }))
-                  }
-                  currentCampaignId={appContext.campaignId}
-                  worlds={worlds}
-                />
-              )}
-
-              {activeModuleId === 'characters' && (
-                <CharactersPage
-                  characters={characters}
-                  campaigns={campaigns}
-                  currentUserId={authenticatedUserId}
-                  onSaveCharacter={handleSaveCharacter}
-                  onDeleteCharacter={handleDeleteCharacter}
-                  appCampaignId={appContext.campaignId}
-                  accessibleCampaigns={accessibleCampaigns}
-                  currentCharacterId={appContext.characterId}
-                  onSelectCharacter={(characterId) =>
-                    setAppContext((prev) => ({ ...prev, characterId }))
-                  }
-                  onSelectCampaign={(campaignId) =>
-                    setAppContext((prev) => ({ ...prev, campaignId }))
-                  }
-                />
-              )}
-
-              {activeModuleId === 'platform-admin' && (
-                permissions.canViewPlatformAdmin ? (
-                  <PlatformAdmin
-                    activeSectionId={activeSectionId}
-                    onSectionChange={setActiveSectionId}
-                    users={users}
-                    roles={roles}
-                    campaigns={campaigns}
-                    permissions={permissions}
-                    onSaveUser={handleSaveUser}
-                    onDeleteUser={handleDeleteUser}
-                  onSaveRole={handleSaveRole}
-                  onDeleteRole={handleDeleteRole}
-                  onSaveCampaign={handleSaveCampaign}
-                  onDeleteCampaign={handleDeleteCampaign}
-                  worlds={worlds}
-                />
-                ) : (
-                  <div className="empty-state">
-                    <h2>Access restricted</h2>
-                    <p>You currently do not have permission to administer the platform.</p>
-                  </div>
-                )
-              )}
-            </>
-          )}
-        </main>
+          <main className="module-content">{mainContent}</main>
+        </div>
       </div>
-    </div>
     </div>
   )
 }
@@ -1215,7 +1404,10 @@ function CampaignsPage({
   isSystemAdmin,
   onSelectCampaign,
   currentCampaignId,
-  worlds
+  worlds,
+  canCreateCampaigns,
+  routeCampaignId,
+  onRouteChange
 }) {
   const roleNameLookup = useMemo(() => {
     const map = new Map()
@@ -1278,6 +1470,12 @@ function CampaignsPage({
   const [confirmState, setConfirmState] = useState({ open: false, record: null })
 
   useEffect(() => {
+    if (!canCreateCampaigns) {
+      setCreateDrawerOpen(false)
+    }
+  }, [canCreateCampaigns])
+
+  useEffect(() => {
     if (!createDrawerOpen) {
       setCreateForm({
         name: '',
@@ -1318,6 +1516,31 @@ function CampaignsPage({
       })
     }
   }, [recordDrawer.open, recordDrawer.recordId, recordDrawer.editing, accessibleCampaigns])
+
+  useEffect(() => {
+    if (!routeCampaignId) {
+      setRecordDrawer((prev) =>
+        prev.open || prev.recordId ? { open: false, recordId: null, editing: false } : prev
+      )
+      return
+    }
+
+    const matched = accessibleCampaigns.find((campaign) => campaign.id === routeCampaignId)
+    if (!matched) {
+      if (typeof onRouteChange === 'function') {
+        onRouteChange(null)
+      }
+      setRecordDrawer({ open: false, recordId: null, editing: false })
+      return
+    }
+
+    setRecordDrawer((prev) => {
+      if (prev.open && prev.recordId === matched.id) {
+        return prev
+      }
+      return { open: true, recordId: matched.id, editing: false }
+    })
+  }, [routeCampaignId, accessibleCampaigns, onRouteChange])
 
   const sortedCampaigns = useMemo(() => {
     return [...accessibleCampaigns].sort((a, b) => {
@@ -1364,6 +1587,7 @@ function CampaignsPage({
   }
 
   const openCreate = () => {
+    if (!canCreateCampaigns) return
     const defaultAssignments = []
     if (currentUserId && dungeonMasterRoleId) {
       defaultAssignments.push({
@@ -1442,9 +1666,17 @@ function CampaignsPage({
         ? record.assignments.map((assignment) => ({ ...assignment }))
         : []
     })
+    if (typeof onRouteChange === 'function') {
+      onRouteChange(record.id)
+    }
   }
 
-  const closeRecord = () => setRecordDrawer({ open: false, recordId: null, editing: false })
+  const closeRecord = () => {
+    if (typeof onRouteChange === 'function') {
+      onRouteChange(null)
+    }
+    setRecordDrawer({ open: false, recordId: null, editing: false })
+  }
 
   const beginEditRecord = () => setRecordDrawer((prev) => ({ ...prev, editing: true }))
 
@@ -1487,7 +1719,7 @@ function CampaignsPage({
     }
 
     onSaveCampaign(payload, 'edit')
-    setRecordDrawer({ open: false, recordId: null, editing: false })
+    closeRecord()
   }
 
   const handleAddRecordAssignment = () => {
@@ -1627,9 +1859,11 @@ function CampaignsPage({
             View the adventures you belong to and keep your party assignments current.
           </p>
         </div>
-        <button type="button" className="primary" onClick={openCreate}>
-          New campaign
-        </button>
+        {canCreateCampaigns && (
+          <button type="button" className="primary" onClick={openCreate}>
+            New campaign
+          </button>
+        )}
       </header>
 
       {sortedCampaigns.length === 0 ? (
@@ -3004,9 +3238,11 @@ function MyProfile({
           <p>Keep your personal information up to date and control how other adventurers see you.</p>
         </div>
         <div className="profile-header-actions">
-          <button type="button" className="ghost" onClick={onClose}>
-            Back to platform admin
-          </button>
+          {typeof onClose === 'function' && (
+            <button type="button" className="ghost" onClick={onClose}>
+              Back to workspace
+            </button>
+          )}
           {typeof onLogout === 'function' && (
             <button type="button" className="ghost destructive" onClick={onLogout}>
               Log out
