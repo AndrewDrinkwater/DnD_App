@@ -916,6 +916,7 @@ function App() {
         currentUserId={authenticatedUserId}
         roles={roles}
         users={users}
+        characters={characters}
         isSystemAdmin={isSystemAdmin}
         onSelectCampaign={(campaignId) =>
           setAppContext((prev) => ({ ...prev, campaignId }))
@@ -1401,6 +1402,7 @@ function CampaignsPage({
   currentUserId,
   roles,
   users,
+  characters = [],
   isSystemAdmin,
   onSelectCampaign,
   currentCampaignId,
@@ -1426,6 +1428,18 @@ function CampaignsPage({
     worlds.forEach((world) => map.set(world.id, world.name))
     return map
   }, [worlds])
+
+  const campaignCharacterLookup = useMemo(() => {
+    const map = new Map()
+    characters
+      .filter((character) => character && character.campaignId)
+      .forEach((character) => {
+        const entries = map.get(character.campaignId) || []
+        entries.push(character)
+        map.set(character.campaignId, entries)
+      })
+    return map
+  }, [characters])
 
   const dungeonMasterRoleId = useMemo(
     () => roles.find((role) => role.name === 'Dungeon Master')?.id || '',
@@ -1557,6 +1571,13 @@ function CampaignsPage({
   const getUserName = (userId) => userNameLookup.get(userId) || 'Unknown user'
   const getRoleName = (roleId) => roleNameLookup.get(roleId) || 'Unknown role'
   const getWorldName = (worldId) => worldNameLookup.get(worldId) || 'Unassigned world'
+  const getCharactersForAssignment = useCallback(
+    (campaignId, userId) => {
+      const byCampaign = campaignCharacterLookup.get(campaignId) || []
+      return byCampaign.filter((character) => character.ownerId === userId)
+    },
+    [campaignCharacterLookup]
+  )
 
   const userCanManage = (campaign) => {
     if (isSystemAdmin) return true
@@ -1570,21 +1591,24 @@ function CampaignsPage({
     })
   }
 
-  const splitAssignments = (campaign) => {
-    const result = { dungeonMasters: [], partyMembers: [] }
-    if (!Array.isArray(campaign.assignments)) {
-      return result
-    }
-    campaign.assignments.forEach((assignment) => {
-      const roleName = roleNameLookup.get(assignment.roleId)
-      if (roleName === 'Dungeon Master') {
-        result.dungeonMasters.push(assignment)
-      } else {
-        result.partyMembers.push(assignment)
+  const splitAssignments = useCallback(
+    (campaign) => {
+      const result = { dungeonMasters: [], partyMembers: [] }
+      if (!Array.isArray(campaign.assignments)) {
+        return result
       }
-    })
-    return result
-  }
+      campaign.assignments.forEach((assignment) => {
+        const roleName = roleNameLookup.get(assignment.roleId)
+        if (roleName === 'Dungeon Master') {
+          result.dungeonMasters.push(assignment)
+        } else {
+          result.partyMembers.push(assignment)
+        }
+      })
+      return result
+    },
+    [roleNameLookup]
+  )
 
   const openCreate = () => {
     if (!canCreateCampaigns) return
@@ -1787,7 +1811,7 @@ function CampaignsPage({
       return { dungeonMasters: [], partyMembers: [] }
     }
     return splitAssignments(currentRecord)
-  }, [currentRecord, roleNameLookup])
+  }, [currentRecord, splitAssignments])
 
   const renderAssignmentEditor = (assignments, onUpdate, onRemove, prefix) => {
     if (assignments.length === 0) {
@@ -1802,7 +1826,7 @@ function CampaignsPage({
             Actions
           </span>
         </div>
-        {assignments.map((assignment, index) => {
+        {assignments.map((assignment) => {
           const userFieldId = `${prefix}-assignment-${assignment.id}-user`
           const roleFieldId = `${prefix}-assignment-${assignment.id}-role`
           return (
@@ -1874,7 +1898,6 @@ function CampaignsPage({
       ) : (
         <div className="campaign-grid">
           {sortedCampaigns.map((campaign) => {
-            const manageAllowed = userCanManage(campaign)
             const isCurrent = currentCampaignId === campaign.id
             const { dungeonMasters: cardDMs, partyMembers: cardParty } = splitAssignments(campaign)
             return (
@@ -1943,12 +1966,33 @@ function CampaignsPage({
                   <h4>Party</h4>
                   {cardParty.length > 0 ? (
                     <ul>
-                      {cardParty.map((assignment) => (
-                        <li key={assignment.id}>
-                          <span className="party-member">{getUserName(assignment.userId)}</span>
-                          <span className="party-role">{getRoleName(assignment.roleId)}</span>
-                        </li>
-                      ))}
+                      {cardParty.map((assignment) => {
+                        const playerName = getUserName(assignment.userId)
+                        const charactersForPlayer = getCharactersForAssignment(campaign.id, assignment.userId)
+                        return (
+                          <li key={assignment.id} className="party-entry">
+                            <div className="party-entry-header">
+                              <span className="party-member">{playerName}</span>
+                              <span className="party-role">{getRoleName(assignment.roleId)}</span>
+                            </div>
+                            <div className="party-character-group">
+                              <span className="party-character-label">Characters</span>
+                              {charactersForPlayer.length > 0 ? (
+                                <ul className="party-character-list">
+                                  {charactersForPlayer.map((character) => (
+                                    <li key={character.id} className="party-character">
+                                      <span className="party-character-name">{character.name}</span>
+                                      <span className="party-character-player">Played by {playerName}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="party-character-empty">No character selected</p>
+                              )}
+                            </div>
+                          </li>
+                        )
+                      })}
                     </ul>
                   ) : (
                     <p className="helper-text">No party members linked yet.</p>
@@ -2207,12 +2251,33 @@ function CampaignsPage({
                 <h4>Party</h4>
                 {partyMembers.length > 0 ? (
                   <ul>
-                    {partyMembers.map((assignment) => (
-                      <li key={assignment.id}>
-                        <span className="party-member">{getUserName(assignment.userId)}</span>
-                        <span className="party-role">{getRoleName(assignment.roleId)}</span>
-                      </li>
-                    ))}
+                    {partyMembers.map((assignment) => {
+                      const playerName = getUserName(assignment.userId)
+                      const charactersForPlayer = getCharactersForAssignment(currentRecord.id, assignment.userId)
+                      return (
+                        <li key={assignment.id} className="party-entry">
+                          <div className="party-entry-header">
+                            <span className="party-member">{playerName}</span>
+                            <span className="party-role">{getRoleName(assignment.roleId)}</span>
+                          </div>
+                          <div className="party-character-group">
+                            <span className="party-character-label">Characters</span>
+                            {charactersForPlayer.length > 0 ? (
+                              <ul className="party-character-list">
+                                {charactersForPlayer.map((character) => (
+                                  <li key={character.id} className="party-character">
+                                    <span className="party-character-name">{character.name}</span>
+                                    <span className="party-character-player">Played by {playerName}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="party-character-empty">No character selected</p>
+                            )}
+                          </div>
+                        </li>
+                      )
+                    })}
                   </ul>
                 ) : (
                   <p className="helper-text">No party members linked yet.</p>
