@@ -786,6 +786,112 @@ function HomePage({ onEnterWorkspace }) {
   )
 }
 
+function ListCollector({
+  label,
+  options = [],
+  selectedIds = [],
+  onChange,
+  placeholder = 'Select an option',
+  emptyMessage = 'No options available.',
+  noSelectionMessage = 'No selections yet.'
+}) {
+  const selectId = useMemo(() => newId('list-collector'), [])
+
+  const optionLookup = useMemo(() => {
+    const map = new Map()
+    options.forEach((option) => {
+      if (!option || !option.id) return
+      const labelValue = option.label ?? option.name ?? option.id
+      map.set(option.id, labelValue)
+    })
+    return map
+  }, [options])
+
+  const availableOptions = useMemo(
+    () => options.filter((option) => option?.id && !selectedIds.includes(option.id)),
+    [options, selectedIds]
+  )
+
+  const selectedOptions = useMemo(
+    () =>
+      selectedIds
+        .map((id) => ({ id, label: optionLookup.get(id) || id }))
+        .filter((option) => option.id),
+    [selectedIds, optionLookup]
+  )
+
+  const canModify = typeof onChange === 'function'
+  const canAddMore = availableOptions.length > 0
+
+  const handleSelectChange = (event) => {
+    if (!canModify) return
+    const value = event.target.value
+    if (!value) return
+    if (selectedIds.includes(value)) return
+    onChange([...selectedIds, value])
+  }
+
+  const handleRemove = (id) => {
+    if (!canModify) return
+    onChange(selectedIds.filter((itemId) => itemId !== id))
+  }
+
+  return (
+    <div className="list-collector">
+      <label className="list-collector__label" htmlFor={selectId}>
+        {label}
+      </label>
+      {options.length === 0 ? (
+        <p className="helper-text">{emptyMessage}</p>
+      ) : (
+        <>
+          <div className="list-collector__control">
+            <select
+              id={selectId}
+              value=""
+              onChange={handleSelectChange}
+              disabled={!canModify || !canAddMore}
+            >
+              <option value="">
+                {canAddMore ? placeholder : 'All options linked'}
+              </option>
+              {availableOptions.map((option) => {
+                const optionLabel = option.label ?? option.name ?? option.id
+                return (
+                  <option key={option.id} value={option.id}>
+                    {optionLabel}
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+
+          {selectedOptions.length > 0 ? (
+            <div className="list-collector__pill-row" role="list">
+              {selectedOptions.map((option) => (
+                <span key={option.id} className="list-collector__pill" role="listitem">
+                  {option.label}
+                  <button
+                    type="button"
+                    className="list-collector__pill-remove"
+                    onClick={() => handleRemove(option.id)}
+                    disabled={!canModify}
+                    aria-label={`Remove ${option.label}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="helper-text">{noSelectionMessage}</p>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 function NpcDirectory({
   records,
   totalCount,
@@ -937,24 +1043,12 @@ function NpcDirectory({
     resetForm()
   }
 
-  const toggleCampaign = (campaignId) => {
-    setForm((prev) => {
-      const exists = prev.campaignIds.includes(campaignId)
-      const nextCampaignIds = exists
-        ? prev.campaignIds.filter((id) => id !== campaignId)
-        : [...prev.campaignIds, campaignId]
-      return { ...prev, campaignIds: nextCampaignIds }
-    })
+  const handleCampaignChange = (nextCampaignIds) => {
+    setForm((prev) => ({ ...prev, campaignIds: nextCampaignIds }))
   }
 
-  const toggleCharacter = (characterId) => {
-    setForm((prev) => {
-      const exists = prev.characterIds.includes(characterId)
-      const nextCharacterIds = exists
-        ? prev.characterIds.filter((id) => id !== characterId)
-        : [...prev.characterIds, characterId]
-      return { ...prev, characterIds: nextCharacterIds }
-    })
+  const handleCharacterChange = (nextCharacterIds) => {
+    setForm((prev) => ({ ...prev, characterIds: nextCharacterIds }))
   }
 
   const handleSubmit = (event) => {
@@ -1135,41 +1229,31 @@ function NpcDirectory({
               </select>
             </label>
 
-            <fieldset className="checkbox-group">
-              <legend>Linked campaigns</legend>
-              {campaigns.length === 0 ? (
-                <p className="helper-text">No campaigns available.</p>
-              ) : (
-                campaigns.map((campaign) => (
-                  <label key={campaign.id} className="checkbox-option">
-                    <input
-                      type="checkbox"
-                      checked={form.campaignIds.includes(campaign.id)}
-                      onChange={() => toggleCampaign(campaign.id)}
-                    />
-                    <span>{campaign.name}</span>
-                  </label>
-                ))
-              )}
-            </fieldset>
+            <ListCollector
+              label="Linked campaigns"
+              options={campaigns.map((campaign) => ({
+                id: campaign.id,
+                label: campaign.name
+              }))}
+              selectedIds={form.campaignIds}
+              onChange={handleCampaignChange}
+              placeholder="Add a campaign"
+              emptyMessage="No campaigns available."
+              noSelectionMessage="No campaigns linked."
+            />
 
-            <fieldset className="checkbox-group">
-              <legend>Linked characters</legend>
-              {characters.length === 0 ? (
-                <p className="helper-text">No characters available.</p>
-              ) : (
-                characters.map((character) => (
-                  <label key={character.id} className="checkbox-option">
-                    <input
-                      type="checkbox"
-                      checked={form.characterIds.includes(character.id)}
-                      onChange={() => toggleCharacter(character.id)}
-                    />
-                    <span>{character.name}</span>
-                  </label>
-                ))
-              )}
-            </fieldset>
+            <ListCollector
+              label="Linked characters"
+              options={characters.map((character) => ({
+                id: character.id,
+                label: character.name
+              }))}
+              selectedIds={form.characterIds}
+              onChange={handleCharacterChange}
+              placeholder="Add a character"
+              emptyMessage="No characters available."
+              noSelectionMessage="No characters linked."
+            />
 
             <label>
               <span>Current lead</span>
@@ -1291,7 +1375,12 @@ function LocationsAtlas({
   activeCharacter,
   characterCount,
   hasDmVision,
-  isWorldBuilder
+  isWorldBuilder,
+  campaigns = [],
+  characters = [],
+  worlds = [],
+  onSave,
+  onDelete
 }) {
   const emptyDescription = showContextPrompt
     ? 'Set a campaign or character context to reveal scouting intel.'
@@ -1419,24 +1508,12 @@ function LocationsAtlas({
     resetForm()
   }
 
-  const toggleCampaign = (campaignId) => {
-    setForm((prev) => {
-      const exists = prev.campaignIds.includes(campaignId)
-      const nextCampaignIds = exists
-        ? prev.campaignIds.filter((id) => id !== campaignId)
-        : [...prev.campaignIds, campaignId]
-      return { ...prev, campaignIds: nextCampaignIds }
-    })
+  const handleCampaignChange = (nextCampaignIds) => {
+    setForm((prev) => ({ ...prev, campaignIds: nextCampaignIds }))
   }
 
-  const toggleCharacter = (characterId) => {
-    setForm((prev) => {
-      const exists = prev.characterIds.includes(characterId)
-      const nextCharacterIds = exists
-        ? prev.characterIds.filter((id) => id !== characterId)
-        : [...prev.characterIds, characterId]
-      return { ...prev, characterIds: nextCharacterIds }
-    })
+  const handleCharacterChange = (nextCharacterIds) => {
+    setForm((prev) => ({ ...prev, characterIds: nextCharacterIds }))
   }
 
   const handleSubmit = (event) => {
@@ -1566,41 +1643,31 @@ function LocationsAtlas({
               </select>
             </label>
 
-            <fieldset className="checkbox-group">
-              <legend>Linked campaigns</legend>
-              {campaigns.length === 0 ? (
-                <p className="helper-text">No campaigns available.</p>
-              ) : (
-                campaigns.map((campaign) => (
-                  <label key={campaign.id} className="checkbox-option">
-                    <input
-                      type="checkbox"
-                      checked={form.campaignIds.includes(campaign.id)}
-                      onChange={() => toggleCampaign(campaign.id)}
-                    />
-                    <span>{campaign.name}</span>
-                  </label>
-                ))
-              )}
-            </fieldset>
+            <ListCollector
+              label="Linked campaigns"
+              options={campaigns.map((campaign) => ({
+                id: campaign.id,
+                label: campaign.name
+              }))}
+              selectedIds={form.campaignIds}
+              onChange={handleCampaignChange}
+              placeholder="Add a campaign"
+              emptyMessage="No campaigns available."
+              noSelectionMessage="No campaigns linked."
+            />
 
-            <fieldset className="checkbox-group">
-              <legend>Linked characters</legend>
-              {characters.length === 0 ? (
-                <p className="helper-text">No characters available.</p>
-              ) : (
-                characters.map((character) => (
-                  <label key={character.id} className="checkbox-option">
-                    <input
-                      type="checkbox"
-                      checked={form.characterIds.includes(character.id)}
-                      onChange={() => toggleCharacter(character.id)}
-                    />
-                    <span>{character.name}</span>
-                  </label>
-                ))
-              )}
-            </fieldset>
+            <ListCollector
+              label="Linked characters"
+              options={characters.map((character) => ({
+                id: character.id,
+                label: character.name
+              }))}
+              selectedIds={form.characterIds}
+              onChange={handleCharacterChange}
+              placeholder="Add a character"
+              emptyMessage="No characters available."
+              noSelectionMessage="No characters linked."
+            />
 
             <label>
               <span>Tags (comma separated)</span>
@@ -1662,7 +1729,15 @@ function OrganisationsLedger({
   campaigns = [],
   worlds = [],
   onSave,
-  onDelete
+  onDelete,
+  relationships = [],
+  relationshipKinds = [],
+  entityDirectory = {},
+  onCreateRelationship,
+  onDeleteRelationship,
+  onNavigateEntity,
+  focusId,
+  onClearFocus
 }) {
   const emptyDescription = showContextPrompt
     ? 'Select a campaign or character to reveal the factions relevant to them.'
@@ -1754,6 +1829,7 @@ function OrganisationsLedger({
   const canManage = typeof onSave === 'function'
   const formId = useMemo(() => newId('organisation-form'), [])
   const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
+  const [viewer, setViewer] = useState({ open: false, recordId: null })
   const [form, setForm] = useState(() => ({
     name: '',
     alignment: '',
@@ -1768,6 +1844,11 @@ function OrganisationsLedger({
     tags: '',
     lastActivityAt: ''
   }))
+
+  const currentViewerRecord = useMemo(
+    () => records.find((organisation) => organisation.id === viewer.recordId) || null,
+    [records, viewer.recordId]
+  )
 
   const resetForm = () => {
     setForm({
@@ -1814,14 +1895,8 @@ function OrganisationsLedger({
     resetForm()
   }
 
-  const toggleCampaign = (campaignId) => {
-    setForm((prev) => {
-      const exists = prev.campaignIds.includes(campaignId)
-      const nextCampaignIds = exists
-        ? prev.campaignIds.filter((id) => id !== campaignId)
-        : [...prev.campaignIds, campaignId]
-      return { ...prev, campaignIds: nextCampaignIds }
-    })
+  const handleCampaignChange = (nextCampaignIds) => {
+    setForm((prev) => ({ ...prev, campaignIds: nextCampaignIds }))
   }
 
   const handleSubmit = (event) => {
@@ -1862,6 +1937,41 @@ function OrganisationsLedger({
     }
 
     closeEditor()
+  }
+
+  const openViewer = (record) => {
+    if (!record) return
+    setViewer({ open: true, recordId: record.id })
+  }
+
+  const closeViewer = () => {
+    setViewer({ open: false, recordId: null })
+  }
+
+  useEffect(() => {
+    if (!focusId) return
+    const match = records.find((organisation) => organisation.id === focusId)
+    if (match) {
+      setViewer({ open: true, recordId: focusId })
+      onClearFocus?.()
+    }
+  }, [focusId, records, onClearFocus])
+
+  useEffect(() => {
+    if (viewer.open && !currentViewerRecord) {
+      setViewer({ open: false, recordId: null })
+    }
+  }, [viewer.open, currentViewerRecord])
+
+  const handleRelationshipNavigate = (type, id) => {
+    if (type === 'organisation') {
+      const match = records.find((organisation) => organisation.id === id)
+      if (match) {
+        setViewer({ open: true, recordId: id })
+        return
+      }
+    }
+    onNavigateEntity?.(type, id)
   }
 
   const handleDelete = (recordId) => {
@@ -1963,23 +2073,18 @@ function OrganisationsLedger({
               </select>
             </label>
 
-            <fieldset className="checkbox-group">
-              <legend>Linked campaigns</legend>
-              {campaigns.length === 0 ? (
-                <p className="helper-text">No campaigns available.</p>
-              ) : (
-                campaigns.map((campaign) => (
-                  <label key={campaign.id} className="checkbox-option">
-                    <input
-                      type="checkbox"
-                      checked={form.campaignIds.includes(campaign.id)}
-                      onChange={() => toggleCampaign(campaign.id)}
-                    />
-                    <span>{campaign.name}</span>
-                  </label>
-                ))
-              )}
-            </fieldset>
+            <ListCollector
+              label="Linked campaigns"
+              options={campaigns.map((campaign) => ({
+                id: campaign.id,
+                label: campaign.name
+              }))}
+              selectedIds={form.campaignIds}
+              onChange={handleCampaignChange}
+              placeholder="Add a campaign"
+              emptyMessage="No campaigns available."
+              noSelectionMessage="No campaigns linked."
+            />
 
             <label>
               <span>Goals (comma separated)</span>
