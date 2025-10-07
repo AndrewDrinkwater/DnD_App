@@ -578,6 +578,22 @@ const formatRelativeTime = (value) => {
   return formatter.format(valueMinutes, 'minute')
 }
 
+const toDateTimeInputValue = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const offsetMinutes = date.getTimezoneOffset()
+  const adjusted = new Date(date.getTime() - offsetMinutes * 60 * 1000)
+  return adjusted.toISOString().slice(0, 16)
+}
+
+const fromDateTimeInputValue = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toISOString()
+}
+
 function Badge({ variant = 'neutral', children, className = '', ...props }) {
   const classes = classNames('ui-badge', `ui-badge--${variant}`, className)
   return (
@@ -668,7 +684,12 @@ function NpcDirectory({
   worldLookup,
   activeCampaign,
   activeCharacter,
-  characterCount
+  characterCount,
+  campaigns = [],
+  characters = [],
+  worlds = [],
+  onSave,
+  onDelete
 }) {
   const emptyDescription = showContextPrompt
     ? 'Pick a campaign or character from the header to reveal NPCs tied to them.'
@@ -733,28 +754,300 @@ function NpcDirectory({
     </p>
   ) : null
 
+  const canManage = typeof onSave === 'function'
+  const formId = useMemo(() => newId('npc-form'), [])
+  const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
+  const [form, setForm] = useState(() => ({
+    name: '',
+    role: '',
+    demeanor: '',
+    description: '',
+    worldId: worlds[0]?.id ?? '',
+    visibility: 'campaign',
+    campaignIds: [],
+    characterIds: [],
+    tags: '',
+    location: '',
+    lastInteractedAt: ''
+  }))
+
+  const resetForm = () => {
+    setForm({
+      name: '',
+      role: '',
+      demeanor: '',
+      description: '',
+      worldId: worlds[0]?.id ?? '',
+      visibility: 'campaign',
+      campaignIds: [],
+      characterIds: [],
+      tags: '',
+      location: '',
+      lastInteractedAt: ''
+    })
+  }
+
+  const openCreate = () => {
+    resetForm()
+    setEditor({ open: true, mode: 'create', record: null })
+  }
+
+  const openEdit = (record) => {
+    setForm({
+      name: record.name || '',
+      role: record.role || '',
+      demeanor: record.demeanor || '',
+      description: record.description || '',
+      worldId: record.worldId || worlds[0]?.id || '',
+      visibility: record.visibility || 'campaign',
+      campaignIds: Array.isArray(record.campaignIds) ? record.campaignIds : [],
+      characterIds: Array.isArray(record.characterIds) ? record.characterIds : [],
+      tags: Array.isArray(record.tags) ? record.tags.join(', ') : '',
+      location: record.location || '',
+      lastInteractedAt: record.lastInteractedAt ? toDateTimeInputValue(record.lastInteractedAt) : ''
+    })
+    setEditor({ open: true, mode: 'edit', record })
+  }
+
+  const closeEditor = () => {
+    setEditor((prev) => ({ ...prev, open: false }))
+    resetForm()
+  }
+
+  const toggleCampaign = (campaignId) => {
+    setForm((prev) => {
+      const exists = prev.campaignIds.includes(campaignId)
+      const nextCampaignIds = exists
+        ? prev.campaignIds.filter((id) => id !== campaignId)
+        : [...prev.campaignIds, campaignId]
+      return { ...prev, campaignIds: nextCampaignIds }
+    })
+  }
+
+  const toggleCharacter = (characterId) => {
+    setForm((prev) => {
+      const exists = prev.characterIds.includes(characterId)
+      const nextCharacterIds = exists
+        ? prev.characterIds.filter((id) => id !== characterId)
+        : [...prev.characterIds, characterId]
+      return { ...prev, characterIds: nextCharacterIds }
+    })
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    if (!form.name.trim()) return
+
+    const payload = {
+      name: form.name.trim(),
+      role: form.role.trim(),
+      demeanor: form.demeanor.trim(),
+      description: form.description.trim(),
+      worldId: form.worldId,
+      visibility: form.visibility,
+      campaignIds: form.campaignIds,
+      characterIds: form.characterIds,
+      tags: form.tags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      location: form.location.trim(),
+      lastInteractedAt: fromDateTimeInputValue(form.lastInteractedAt)
+    }
+
+    if (editor.mode === 'edit' && editor.record) {
+      onSave?.({ ...payload, id: editor.record.id }, 'edit')
+    } else {
+      onSave?.(payload, 'create')
+    }
+
+    closeEditor()
+  }
+
+  const handleDelete = (recordId) => {
+    if (!onDelete) return
+    if (!window.confirm('Delete this NPC?')) return
+    onDelete(recordId)
+  }
+
   return (
-    <StandardListView
-      entityName="NPC"
-      heading="NPC compendium"
-      description={contextDescription}
-      columns={npcColumns}
-      records={records}
-      totalCount={totalCount}
-      emptyTitle="No NPCs visible"
-      emptyMessage={emptyDescription}
-      filterEmptyMessage="No NPCs match the current filters."
-      enableFilters
-      badge={({ filteredCount }) => (
-        <span className="list-chip">{filteredCount} / {totalCount} visible</span>
+    <>
+      <StandardListView
+        entityName="NPC"
+        heading="NPC compendium"
+        description={contextDescription}
+        columns={npcColumns}
+        records={records}
+        totalCount={totalCount}
+        emptyTitle="No NPCs visible"
+        emptyMessage={emptyDescription}
+        filterEmptyMessage="No NPCs match the current filters."
+        enableFilters
+        badge={({ filteredCount }) => (
+          <span className="list-chip">{filteredCount} / {totalCount} visible</span>
+        )}
+        information={contextLabel}
+        note={
+          !isWorldBuilder && hasDmVision ? (
+            <p className="knowledge-dm-note">You are seeing entries flagged for Dungeon Masters in this context.</p>
+          ) : null
+        }
+        onCreate={canManage ? openCreate : undefined}
+        onEdit={canManage ? openEdit : undefined}
+        onDelete={canManage ? handleDelete : undefined}
+      />
+
+      {canManage && (
+        <FormModal
+          open={editor.open}
+          title={editor.mode === 'edit' ? 'Edit NPC' : 'Add NPC'}
+          onClose={closeEditor}
+          actions={
+            <>
+              <button type="button" className="ghost" onClick={closeEditor}>
+                Cancel
+              </button>
+              <button type="submit" className="primary" form={formId}>
+                {editor.mode === 'edit' ? 'Save NPC' : 'Create NPC'}
+              </button>
+            </>
+          }
+        >
+          <form id={formId} className="drawer-form" onSubmit={handleSubmit}>
+            <label>
+              <span>Name</span>
+              <input
+                required
+                type="text"
+                value={form.name}
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Role or title</span>
+              <input
+                type="text"
+                value={form.role}
+                onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>World</span>
+              <select
+                value={form.worldId}
+                onChange={(event) => setForm((prev) => ({ ...prev, worldId: event.target.value }))}
+              >
+                <option value="">Unassigned world</option>
+                {worlds.map((world) => (
+                  <option key={world.id} value={world.id}>
+                    {world.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Disposition</span>
+              <input
+                type="text"
+                value={form.demeanor}
+                onChange={(event) => setForm((prev) => ({ ...prev, demeanor: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Visibility</span>
+              <select
+                value={form.visibility}
+                onChange={(event) => setForm((prev) => ({ ...prev, visibility: event.target.value }))}
+              >
+                <option value="public">All adventurers</option>
+                <option value="campaign">Campaign</option>
+                <option value="party">Party</option>
+                <option value="character">Personal</option>
+                <option value="dm">Dungeon Masters</option>
+              </select>
+            </label>
+
+            <fieldset className="checkbox-group">
+              <legend>Linked campaigns</legend>
+              {campaigns.length === 0 ? (
+                <p className="helper-text">No campaigns available.</p>
+              ) : (
+                campaigns.map((campaign) => (
+                  <label key={campaign.id} className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={form.campaignIds.includes(campaign.id)}
+                      onChange={() => toggleCampaign(campaign.id)}
+                    />
+                    <span>{campaign.name}</span>
+                  </label>
+                ))
+              )}
+            </fieldset>
+
+            <fieldset className="checkbox-group">
+              <legend>Linked characters</legend>
+              {characters.length === 0 ? (
+                <p className="helper-text">No characters available.</p>
+              ) : (
+                characters.map((character) => (
+                  <label key={character.id} className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={form.characterIds.includes(character.id)}
+                      onChange={() => toggleCharacter(character.id)}
+                    />
+                    <span>{character.name}</span>
+                  </label>
+                ))
+              )}
+            </fieldset>
+
+            <label>
+              <span>Current lead</span>
+              <input
+                type="text"
+                value={form.location}
+                onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Tags (comma separated)</span>
+              <input
+                type="text"
+                value={form.tags}
+                onChange={(event) => setForm((prev) => ({ ...prev, tags: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Last seen</span>
+              <input
+                type="datetime-local"
+                value={form.lastInteractedAt}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, lastInteractedAt: event.target.value }))
+                }
+              />
+            </label>
+
+            <label>
+              <span>Description</span>
+              <textarea
+                rows={4}
+                value={form.description}
+                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+              />
+            </label>
+          </form>
+        </FormModal>
       )}
-      information={contextLabel}
-      note={
-        !isWorldBuilder && hasDmVision ? (
-          <p className="knowledge-dm-note">You are seeing entries flagged for Dungeon Masters in this context.</p>
-        ) : null
-      }
-    />
+    </>
   )
 }
 
@@ -841,28 +1134,287 @@ function LocationsAtlas({
     </p>
   ) : null
 
+  const canManage = typeof onSave === 'function'
+  const formId = useMemo(() => newId('location-form'), [])
+  const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
+  const [form, setForm] = useState(() => ({
+    name: '',
+    type: '',
+    summary: '',
+    notes: '',
+    worldId: worlds[0]?.id ?? '',
+    visibility: 'campaign',
+    campaignIds: [],
+    characterIds: [],
+    tags: '',
+    lastScoutedAt: ''
+  }))
+
+  const resetForm = () => {
+    setForm({
+      name: '',
+      type: '',
+      summary: '',
+      notes: '',
+      worldId: worlds[0]?.id ?? '',
+      visibility: 'campaign',
+      campaignIds: [],
+      characterIds: [],
+      tags: '',
+      lastScoutedAt: ''
+    })
+  }
+
+  const openCreate = () => {
+    resetForm()
+    setEditor({ open: true, mode: 'create', record: null })
+  }
+
+  const openEdit = (record) => {
+    setForm({
+      name: record.name || '',
+      type: record.type || '',
+      summary: record.summary || '',
+      notes: record.notes || '',
+      worldId: record.worldId || worlds[0]?.id || '',
+      visibility: record.visibility || 'campaign',
+      campaignIds: Array.isArray(record.campaignIds) ? record.campaignIds : [],
+      characterIds: Array.isArray(record.characterIds) ? record.characterIds : [],
+      tags: Array.isArray(record.tags) ? record.tags.join(', ') : '',
+      lastScoutedAt: record.lastScoutedAt ? toDateTimeInputValue(record.lastScoutedAt) : ''
+    })
+    setEditor({ open: true, mode: 'edit', record })
+  }
+
+  const closeEditor = () => {
+    setEditor((prev) => ({ ...prev, open: false }))
+    resetForm()
+  }
+
+  const toggleCampaign = (campaignId) => {
+    setForm((prev) => {
+      const exists = prev.campaignIds.includes(campaignId)
+      const nextCampaignIds = exists
+        ? prev.campaignIds.filter((id) => id !== campaignId)
+        : [...prev.campaignIds, campaignId]
+      return { ...prev, campaignIds: nextCampaignIds }
+    })
+  }
+
+  const toggleCharacter = (characterId) => {
+    setForm((prev) => {
+      const exists = prev.characterIds.includes(characterId)
+      const nextCharacterIds = exists
+        ? prev.characterIds.filter((id) => id !== characterId)
+        : [...prev.characterIds, characterId]
+      return { ...prev, characterIds: nextCharacterIds }
+    })
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    if (!form.name.trim()) return
+
+    const payload = {
+      name: form.name.trim(),
+      type: form.type.trim(),
+      summary: form.summary.trim(),
+      notes: form.notes.trim(),
+      worldId: form.worldId,
+      visibility: form.visibility,
+      campaignIds: form.campaignIds,
+      characterIds: form.characterIds,
+      tags: form.tags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      lastScoutedAt: fromDateTimeInputValue(form.lastScoutedAt)
+    }
+
+    if (editor.mode === 'edit' && editor.record) {
+      onSave?.({ ...payload, id: editor.record.id }, 'edit')
+    } else {
+      onSave?.(payload, 'create')
+    }
+
+    closeEditor()
+  }
+
+  const handleDelete = (recordId) => {
+    if (!onDelete) return
+    if (!window.confirm('Delete this location?')) return
+    onDelete(recordId)
+  }
+
   return (
-    <StandardListView
-      entityName="Location"
-      heading="Location atlas"
-      description={contextDescription}
-      columns={locationColumns}
-      records={records}
-      totalCount={totalCount}
-      emptyTitle="No locations logged"
-      emptyMessage={emptyDescription}
-      filterEmptyMessage="No locations match the current filters."
-      enableFilters
-      badge={({ filteredCount }) => (
-        <span className="list-chip">{filteredCount} / {totalCount} visible</span>
+    <>
+      <StandardListView
+        entityName="Location"
+        heading="Location atlas"
+        description={contextDescription}
+        columns={locationColumns}
+        records={records}
+        totalCount={totalCount}
+        emptyTitle="No locations logged"
+        emptyMessage={emptyDescription}
+        filterEmptyMessage="No locations match the current filters."
+        enableFilters
+        badge={({ filteredCount }) => (
+          <span className="list-chip">{filteredCount} / {totalCount} visible</span>
+        )}
+        information={contextLabel}
+        note={
+          !isWorldBuilder && hasDmVision ? (
+            <p className="knowledge-dm-note">DM-only entries are included because of your campaign role.</p>
+          ) : null
+        }
+        onCreate={canManage ? openCreate : undefined}
+        onEdit={canManage ? openEdit : undefined}
+        onDelete={canManage ? handleDelete : undefined}
+      />
+
+      {canManage && (
+        <FormModal
+          open={editor.open}
+          title={editor.mode === 'edit' ? 'Edit location' : 'Add location'}
+          onClose={closeEditor}
+          actions={
+            <>
+              <button type="button" className="ghost" onClick={closeEditor}>
+                Cancel
+              </button>
+              <button type="submit" className="primary" form={formId}>
+                {editor.mode === 'edit' ? 'Save location' : 'Create location'}
+              </button>
+            </>
+          }
+        >
+          <form id={formId} className="drawer-form" onSubmit={handleSubmit}>
+            <label>
+              <span>Name</span>
+              <input
+                required
+                type="text"
+                value={form.name}
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Type</span>
+              <input
+                type="text"
+                value={form.type}
+                onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>World</span>
+              <select
+                value={form.worldId}
+                onChange={(event) => setForm((prev) => ({ ...prev, worldId: event.target.value }))}
+              >
+                <option value="">Unassigned world</option>
+                {worlds.map((world) => (
+                  <option key={world.id} value={world.id}>
+                    {world.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Visibility</span>
+              <select
+                value={form.visibility}
+                onChange={(event) => setForm((prev) => ({ ...prev, visibility: event.target.value }))}
+              >
+                <option value="public">All adventurers</option>
+                <option value="campaign">Campaign</option>
+                <option value="party">Party</option>
+                <option value="character">Personal</option>
+                <option value="dm">Dungeon Masters</option>
+              </select>
+            </label>
+
+            <fieldset className="checkbox-group">
+              <legend>Linked campaigns</legend>
+              {campaigns.length === 0 ? (
+                <p className="helper-text">No campaigns available.</p>
+              ) : (
+                campaigns.map((campaign) => (
+                  <label key={campaign.id} className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={form.campaignIds.includes(campaign.id)}
+                      onChange={() => toggleCampaign(campaign.id)}
+                    />
+                    <span>{campaign.name}</span>
+                  </label>
+                ))
+              )}
+            </fieldset>
+
+            <fieldset className="checkbox-group">
+              <legend>Linked characters</legend>
+              {characters.length === 0 ? (
+                <p className="helper-text">No characters available.</p>
+              ) : (
+                characters.map((character) => (
+                  <label key={character.id} className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={form.characterIds.includes(character.id)}
+                      onChange={() => toggleCharacter(character.id)}
+                    />
+                    <span>{character.name}</span>
+                  </label>
+                ))
+              )}
+            </fieldset>
+
+            <label>
+              <span>Tags (comma separated)</span>
+              <input
+                type="text"
+                value={form.tags}
+                onChange={(event) => setForm((prev) => ({ ...prev, tags: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Summary</span>
+              <textarea
+                rows={3}
+                value={form.summary}
+                onChange={(event) => setForm((prev) => ({ ...prev, summary: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Field notes</span>
+              <textarea
+                rows={3}
+                value={form.notes}
+                onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Last scouted</span>
+              <input
+                type="datetime-local"
+                value={form.lastScoutedAt}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, lastScoutedAt: event.target.value }))
+                }
+              />
+            </label>
+          </form>
+        </FormModal>
       )}
-      information={contextLabel}
-      note={
-        !isWorldBuilder && hasDmVision ? (
-          <p className="knowledge-dm-note">DM-only entries are included because of your campaign role.</p>
-        ) : null
-      }
-    />
+    </>
   )
 }
 
@@ -878,7 +1430,11 @@ function OrganisationsLedger({
   activeCharacter,
   characterCount,
   hasDmVision,
-  isWorldBuilder
+  isWorldBuilder,
+  campaigns = [],
+  worlds = [],
+  onSave,
+  onDelete
 }) {
   const emptyDescription = showContextPrompt
     ? 'Select a campaign or character to reveal the factions relevant to them.'
@@ -967,32 +1523,315 @@ function OrganisationsLedger({
     </p>
   ) : null
 
+  const canManage = typeof onSave === 'function'
+  const formId = useMemo(() => newId('organisation-form'), [])
+  const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
+  const [form, setForm] = useState(() => ({
+    name: '',
+    alignment: '',
+    summary: '',
+    influence: '',
+    worldId: worlds[0]?.id ?? '',
+    visibility: 'campaign',
+    campaignIds: [],
+    goals: '',
+    allies: '',
+    enemies: '',
+    tags: '',
+    lastActivityAt: ''
+  }))
+
+  const resetForm = () => {
+    setForm({
+      name: '',
+      alignment: '',
+      summary: '',
+      influence: '',
+      worldId: worlds[0]?.id ?? '',
+      visibility: 'campaign',
+      campaignIds: [],
+      goals: '',
+      allies: '',
+      enemies: '',
+      tags: '',
+      lastActivityAt: ''
+    })
+  }
+
+  const openCreate = () => {
+    resetForm()
+    setEditor({ open: true, mode: 'create', record: null })
+  }
+
+  const openEdit = (record) => {
+    setForm({
+      name: record.name || '',
+      alignment: record.alignment || '',
+      summary: record.summary || '',
+      influence: record.influence || '',
+      worldId: record.worldId || worlds[0]?.id || '',
+      visibility: record.visibility || 'campaign',
+      campaignIds: Array.isArray(record.campaignIds) ? record.campaignIds : [],
+      goals: Array.isArray(record.goals) ? record.goals.join(', ') : '',
+      allies: Array.isArray(record.allies) ? record.allies.join(', ') : '',
+      enemies: Array.isArray(record.enemies) ? record.enemies.join(', ') : '',
+      tags: Array.isArray(record.tags) ? record.tags.join(', ') : '',
+      lastActivityAt: record.lastActivityAt ? toDateTimeInputValue(record.lastActivityAt) : ''
+    })
+    setEditor({ open: true, mode: 'edit', record })
+  }
+
+  const closeEditor = () => {
+    setEditor((prev) => ({ ...prev, open: false }))
+    resetForm()
+  }
+
+  const toggleCampaign = (campaignId) => {
+    setForm((prev) => {
+      const exists = prev.campaignIds.includes(campaignId)
+      const nextCampaignIds = exists
+        ? prev.campaignIds.filter((id) => id !== campaignId)
+        : [...prev.campaignIds, campaignId]
+      return { ...prev, campaignIds: nextCampaignIds }
+    })
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    if (!form.name.trim()) return
+
+    const payload = {
+      name: form.name.trim(),
+      alignment: form.alignment.trim(),
+      summary: form.summary.trim(),
+      influence: form.influence.trim(),
+      worldId: form.worldId,
+      visibility: form.visibility,
+      campaignIds: form.campaignIds,
+      goals: form.goals
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      allies: form.allies
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      enemies: form.enemies
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      tags: form.tags
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      lastActivityAt: fromDateTimeInputValue(form.lastActivityAt)
+    }
+
+    if (editor.mode === 'edit' && editor.record) {
+      onSave?.({ ...payload, id: editor.record.id }, 'edit')
+    } else {
+      onSave?.(payload, 'create')
+    }
+
+    closeEditor()
+  }
+
+  const handleDelete = (recordId) => {
+    if (!onDelete) return
+    if (!window.confirm('Delete this organisation?')) return
+    onDelete(recordId)
+  }
+
   return (
-    <StandardListView
-      entityName="Organisation"
-      heading="Faction ledger"
-      description={contextDescription}
-      columns={organisationColumns}
-      records={records}
-      totalCount={totalCount}
-      emptyTitle="No organisations logged"
-      emptyMessage={emptyDescription}
-      filterEmptyMessage="No organisations match the current filters."
-      enableFilters
-      badge={({ filteredCount }) => (
-        <span className="list-chip">{filteredCount} / {totalCount} visible</span>
+    <>
+      <StandardListView
+        entityName="Organisation"
+        heading="Faction ledger"
+        description={contextDescription}
+        columns={organisationColumns}
+        records={records}
+        totalCount={totalCount}
+        emptyTitle="No organisations logged"
+        emptyMessage={emptyDescription}
+        filterEmptyMessage="No organisations match the current filters."
+        enableFilters
+        badge={({ filteredCount }) => (
+          <span className="list-chip">{filteredCount} / {totalCount} visible</span>
+        )}
+        information={contextLabel}
+        note={
+          !isWorldBuilder && hasDmVision ? (
+            <p className="knowledge-dm-note">DM-only faction intel is included because of your permissions.</p>
+          ) : null
+        }
+        onCreate={canManage ? openCreate : undefined}
+        onEdit={canManage ? openEdit : undefined}
+        onDelete={canManage ? handleDelete : undefined}
+      />
+
+      {canManage && (
+        <FormModal
+          open={editor.open}
+          title={editor.mode === 'edit' ? 'Edit organisation' : 'Add organisation'}
+          onClose={closeEditor}
+          actions={
+            <>
+              <button type="button" className="ghost" onClick={closeEditor}>
+                Cancel
+              </button>
+              <button type="submit" className="primary" form={formId}>
+                {editor.mode === 'edit' ? 'Save organisation' : 'Create organisation'}
+              </button>
+            </>
+          }
+        >
+          <form id={formId} className="drawer-form" onSubmit={handleSubmit}>
+            <label>
+              <span>Name</span>
+              <input
+                required
+                type="text"
+                value={form.name}
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Alignment</span>
+              <input
+                type="text"
+                value={form.alignment}
+                onChange={(event) => setForm((prev) => ({ ...prev, alignment: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>World</span>
+              <select
+                value={form.worldId}
+                onChange={(event) => setForm((prev) => ({ ...prev, worldId: event.target.value }))}
+              >
+                <option value="">Unassigned world</option>
+                {worlds.map((world) => (
+                  <option key={world.id} value={world.id}>
+                    {world.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Visibility</span>
+              <select
+                value={form.visibility}
+                onChange={(event) => setForm((prev) => ({ ...prev, visibility: event.target.value }))}
+              >
+                <option value="public">All adventurers</option>
+                <option value="campaign">Campaign</option>
+                <option value="party">Party</option>
+                <option value="character">Personal</option>
+                <option value="dm">Dungeon Masters</option>
+              </select>
+            </label>
+
+            <fieldset className="checkbox-group">
+              <legend>Linked campaigns</legend>
+              {campaigns.length === 0 ? (
+                <p className="helper-text">No campaigns available.</p>
+              ) : (
+                campaigns.map((campaign) => (
+                  <label key={campaign.id} className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={form.campaignIds.includes(campaign.id)}
+                      onChange={() => toggleCampaign(campaign.id)}
+                    />
+                    <span>{campaign.name}</span>
+                  </label>
+                ))
+              )}
+            </fieldset>
+
+            <label>
+              <span>Goals (comma separated)</span>
+              <input
+                type="text"
+                value={form.goals}
+                onChange={(event) => setForm((prev) => ({ ...prev, goals: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Allies (comma separated)</span>
+              <input
+                type="text"
+                value={form.allies}
+                onChange={(event) => setForm((prev) => ({ ...prev, allies: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Adversaries (comma separated)</span>
+              <input
+                type="text"
+                value={form.enemies}
+                onChange={(event) => setForm((prev) => ({ ...prev, enemies: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Tags (comma separated)</span>
+              <input
+                type="text"
+                value={form.tags}
+                onChange={(event) => setForm((prev) => ({ ...prev, tags: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Influence</span>
+              <textarea
+                rows={3}
+                value={form.influence}
+                onChange={(event) => setForm((prev) => ({ ...prev, influence: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Summary</span>
+              <textarea
+                rows={3}
+                value={form.summary}
+                onChange={(event) => setForm((prev) => ({ ...prev, summary: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Last activity</span>
+              <input
+                type="datetime-local"
+                value={form.lastActivityAt}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, lastActivityAt: event.target.value }))
+                }
+              />
+            </label>
+          </form>
+        </FormModal>
       )}
-      information={contextLabel}
-      note={
-        !isWorldBuilder && hasDmVision ? (
-          <p className="knowledge-dm-note">DM-only faction intel is included because of your permissions.</p>
-        ) : null
-      }
-    />
+    </>
   )
 }
 
-function RaceLibrary({ records, totalCount, contextDescription, worldLookup }) {
+function RaceLibrary({
+  records,
+  totalCount,
+  contextDescription,
+  worldLookup,
+  worlds = [],
+  onSave,
+  onDelete
+}) {
   const raceColumns = useMemo(
     () => [
       { id: 'name', label: 'Ancestry', accessor: (race) => race.name },
@@ -1031,22 +1870,187 @@ function RaceLibrary({ records, totalCount, contextDescription, worldLookup }) {
     [worldLookup]
   )
 
+  const canManage = typeof onSave === 'function'
+  const formId = useMemo(() => newId('race-form'), [])
+  const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
+  const [form, setForm] = useState(() => ({
+    name: '',
+    availability: 'Common',
+    worldId: worlds[0]?.id ?? '',
+    favoredClasses: '',
+    traits: '',
+    description: ''
+  }))
+
+  const resetForm = () => {
+    setForm({
+      name: '',
+      availability: 'Common',
+      worldId: worlds[0]?.id ?? '',
+      favoredClasses: '',
+      traits: '',
+      description: ''
+    })
+  }
+
+  const openCreate = () => {
+    resetForm()
+    setEditor({ open: true, mode: 'create', record: null })
+  }
+
+  const openEdit = (record) => {
+    setForm({
+      name: record.name || '',
+      availability: record.availability || 'Common',
+      worldId: record.worldId || worlds[0]?.id || '',
+      favoredClasses: Array.isArray(record.favoredClasses) ? record.favoredClasses.join(', ') : '',
+      traits: Array.isArray(record.traits) ? record.traits.join(', ') : '',
+      description: record.description || ''
+    })
+    setEditor({ open: true, mode: 'edit', record })
+  }
+
+  const closeEditor = () => {
+    setEditor((prev) => ({ ...prev, open: false }))
+    resetForm()
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    if (!form.name.trim()) return
+
+    const payload = {
+      name: form.name.trim(),
+      availability: form.availability.trim() || 'Common',
+      worldId: form.worldId,
+      favoredClasses: form.favoredClasses
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      traits: form.traits
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      description: form.description.trim()
+    }
+
+    if (editor.mode === 'edit' && editor.record) {
+      onSave?.({ ...payload, id: editor.record.id }, 'edit')
+    } else {
+      onSave?.(payload, 'create')
+    }
+
+    closeEditor()
+  }
+
+  const handleDelete = (recordId) => {
+    if (!onDelete) return
+    if (!window.confirm('Delete this ancestry?')) return
+    onDelete(recordId)
+  }
+
   return (
-    <StandardListView
-      entityName="Ancestry"
-      heading="Ancestry library"
-      description={contextDescription}
-      columns={raceColumns}
-      records={records}
-      totalCount={totalCount}
-      emptyTitle="No ancestries curated"
-      emptyMessage="Add your first ancestry to make it available to campaign builders."
-      filterEmptyMessage="No ancestries match the current filters."
-      enableFilters
-      badge={({ filteredCount }) => (
-        <span className="list-chip">{filteredCount} / {totalCount} available</span>
+    <>
+      <StandardListView
+        entityName="Ancestry"
+        heading="Ancestry library"
+        description={contextDescription}
+        columns={raceColumns}
+        records={records}
+        totalCount={totalCount}
+        emptyTitle="No ancestries curated"
+        emptyMessage="Add your first ancestry to make it available to campaign builders."
+        filterEmptyMessage="No ancestries match the current filters."
+        enableFilters
+        badge={({ filteredCount }) => (
+          <span className="list-chip">{filteredCount} / {totalCount} available</span>
+        )}
+        onCreate={canManage ? openCreate : undefined}
+        onEdit={canManage ? openEdit : undefined}
+        onDelete={canManage ? handleDelete : undefined}
+      />
+
+      {canManage && (
+        <FormModal
+          open={editor.open}
+          title={editor.mode === 'edit' ? 'Edit ancestry' : 'Add ancestry'}
+          onClose={closeEditor}
+          actions={
+            <>
+              <button type="button" className="ghost" onClick={closeEditor}>
+                Cancel
+              </button>
+              <button type="submit" className="primary" form={formId}>
+                {editor.mode === 'edit' ? 'Save ancestry' : 'Create ancestry'}
+              </button>
+            </>
+          }
+        >
+          <form id={formId} className="drawer-form" onSubmit={handleSubmit}>
+            <label>
+              <span>Name</span>
+              <input
+                required
+                type="text"
+                value={form.name}
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Availability</span>
+              <input
+                type="text"
+                value={form.availability}
+                onChange={(event) => setForm((prev) => ({ ...prev, availability: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>World</span>
+              <select
+                value={form.worldId}
+                onChange={(event) => setForm((prev) => ({ ...prev, worldId: event.target.value }))}
+              >
+                <option value="">Unassigned world</option>
+                {worlds.map((world) => (
+                  <option key={world.id} value={world.id}>
+                    {world.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Favoured classes (comma separated)</span>
+              <input
+                type="text"
+                value={form.favoredClasses}
+                onChange={(event) => setForm((prev) => ({ ...prev, favoredClasses: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Signature traits (comma separated)</span>
+              <input
+                type="text"
+                value={form.traits}
+                onChange={(event) => setForm((prev) => ({ ...prev, traits: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              <span>Description</span>
+              <textarea
+                rows={4}
+                value={form.description}
+                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+              />
+            </label>
+          </form>
+        </FormModal>
       )}
-    />
+    </>
   )
 }
 
@@ -1091,7 +2095,7 @@ function App() {
   const [organisations, setOrganisations] = useState(() =>
     Array.isArray(storedState?.organisations) ? storedState.organisations : seededOrganisations
   )
-  const [races] = useState(() => (Array.isArray(storedState?.races) ? storedState.races : seededRaces))
+  const [races, setRaces] = useState(() => (Array.isArray(storedState?.races) ? storedState.races : seededRaces))
   const [appContext, setAppContext] = useState(() => {
     if (storedState?.appContext && typeof storedState.appContext === 'object') {
       return {
@@ -1417,6 +2421,70 @@ function App() {
     selectedCharacterId,
     hasDmVision
   ])
+
+  const knowledgeCampaigns = useMemo(() => {
+    if (isWorldBuilder) {
+      return campaigns
+    }
+
+    if (!hasDmVision) {
+      return []
+    }
+
+    return accessibleCampaigns.filter((campaign) => {
+      if (!Array.isArray(campaign.assignments)) return false
+      return campaign.assignments.some((assignment) => {
+        if (assignment.userId !== authenticatedUserId) return false
+        const roleName = roles.find((role) => role.id === assignment.roleId)?.name
+        return roleName === 'Dungeon Master'
+      })
+    })
+  }, [
+    isWorldBuilder,
+    hasDmVision,
+    campaigns,
+    accessibleCampaigns,
+    authenticatedUserId,
+    roles
+  ])
+
+  const knowledgeCharacters = useMemo(() => {
+    if (isWorldBuilder) {
+      return characters
+    }
+
+    const managedCampaignIds = new Set(knowledgeCampaigns.map((campaign) => campaign.id))
+    if (managedCampaignIds.size === 0) {
+      return []
+    }
+
+    return characters.filter((character) => managedCampaignIds.has(character.campaignId))
+  }, [isWorldBuilder, knowledgeCampaigns, characters])
+
+  const knowledgeWorlds = useMemo(() => {
+    if (isWorldBuilder) {
+      return worlds
+    }
+
+    const managedWorldIds = new Set(
+      knowledgeCampaigns
+        .map((campaign) => campaign.worldId)
+        .filter(Boolean)
+    )
+
+    if (managedWorldIds.size === 0) {
+      return []
+    }
+
+    return worlds.filter((world) => managedWorldIds.has(world.id))
+  }, [isWorldBuilder, knowledgeCampaigns, worlds])
+
+  const canManageKnowledge = useMemo(
+    () => isWorldBuilder || knowledgeCampaigns.length > 0,
+    [isWorldBuilder, knowledgeCampaigns]
+  )
+
+  const canManageRaces = isWorldBuilder
 
   const sortedRaces = useMemo(() => [...races].sort((a, b) => a.name.localeCompare(b.name)), [races])
 
@@ -1938,6 +3006,142 @@ function App() {
     )
   }
 
+  const handleSaveNpc = (payload, mode) => {
+    const normalized = {
+      ...payload,
+      worldId: payload.worldId || '',
+      campaignIds: Array.isArray(payload.campaignIds) ? payload.campaignIds : [],
+      characterIds: Array.isArray(payload.characterIds) ? payload.characterIds : [],
+      tags: Array.isArray(payload.tags) ? payload.tags : [],
+      visibility: payload.visibility || 'campaign',
+      lastInteractedAt: payload.lastInteractedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+
+    if (mode === 'edit') {
+      setNpcs((prev) =>
+        prev.map((npc) => (npc.id === payload.id ? { ...npc, ...normalized } : npc))
+      )
+      return
+    }
+
+    setNpcs((prev) => [
+      ...prev,
+      {
+        ...normalized,
+        id: newId('npc'),
+        createdAt: new Date().toISOString()
+      }
+    ])
+  }
+
+  const handleDeleteNpc = (npcId) => {
+    setNpcs((prev) => prev.filter((npc) => npc.id !== npcId))
+  }
+
+  const handleSaveLocation = (payload, mode) => {
+    const normalized = {
+      ...payload,
+      worldId: payload.worldId || '',
+      campaignIds: Array.isArray(payload.campaignIds) ? payload.campaignIds : [],
+      characterIds: Array.isArray(payload.characterIds) ? payload.characterIds : [],
+      tags: Array.isArray(payload.tags) ? payload.tags : [],
+      visibility: payload.visibility || 'campaign',
+      lastScoutedAt: payload.lastScoutedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+
+    if (mode === 'edit') {
+      setLocations((prev) =>
+        prev.map((location) =>
+          location.id === payload.id ? { ...location, ...normalized } : location
+        )
+      )
+      return
+    }
+
+    setLocations((prev) => [
+      ...prev,
+      {
+        ...normalized,
+        id: newId('location'),
+        createdAt: new Date().toISOString()
+      }
+    ])
+  }
+
+  const handleDeleteLocation = (locationId) => {
+    setLocations((prev) => prev.filter((location) => location.id !== locationId))
+  }
+
+  const handleSaveOrganisation = (payload, mode) => {
+    const normalized = {
+      ...payload,
+      worldId: payload.worldId || '',
+      campaignIds: Array.isArray(payload.campaignIds) ? payload.campaignIds : [],
+      tags: Array.isArray(payload.tags) ? payload.tags : [],
+      goals: Array.isArray(payload.goals) ? payload.goals : [],
+      allies: Array.isArray(payload.allies) ? payload.allies : [],
+      enemies: Array.isArray(payload.enemies) ? payload.enemies : [],
+      visibility: payload.visibility || 'campaign',
+      lastActivityAt: payload.lastActivityAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+
+    if (mode === 'edit') {
+      setOrganisations((prev) =>
+        prev.map((organisation) =>
+          organisation.id === payload.id ? { ...organisation, ...normalized } : organisation
+        )
+      )
+      return
+    }
+
+    setOrganisations((prev) => [
+      ...prev,
+      {
+        ...normalized,
+        id: newId('organisation'),
+        createdAt: new Date().toISOString()
+      }
+    ])
+  }
+
+  const handleDeleteOrganisation = (organisationId) => {
+    setOrganisations((prev) => prev.filter((organisation) => organisation.id !== organisationId))
+  }
+
+  const handleSaveRace = (payload, mode) => {
+    const normalized = {
+      ...payload,
+      name: payload.name.trim(),
+      worldId: payload.worldId || '',
+      favoredClasses: Array.isArray(payload.favoredClasses) ? payload.favoredClasses : [],
+      traits: Array.isArray(payload.traits) ? payload.traits : [],
+      availability: payload.availability || 'Common',
+      updatedAt: new Date().toISOString()
+    }
+
+    if (mode === 'edit') {
+      setRaces((prev) =>
+        prev.map((race) => (race.id === payload.id ? { ...race, ...normalized } : race))
+      )
+      return
+    }
+
+    setRaces((prev) => [
+      ...prev,
+      {
+        ...normalized,
+        id: newId('race')
+      }
+    ])
+  }
+
+  const handleDeleteRace = (raceId) => {
+    setRaces((prev) => prev.filter((race) => race.id !== raceId))
+  }
+
   const canCreateCampaigns = useMemo(
     () =>
       assignedRoleNames.includes('Dungeon Master') ||
@@ -2037,6 +3241,11 @@ function App() {
         activeCampaign={selectedCampaign}
         activeCharacter={selectedCharacter}
         characterCount={myCharacters.length}
+        campaigns={knowledgeCampaigns}
+        characters={knowledgeCharacters}
+        worlds={knowledgeWorlds}
+        onSave={canManageKnowledge ? handleSaveNpc : undefined}
+        onDelete={canManageKnowledge ? handleDeleteNpc : undefined}
       />
     )
   } else if (pathMatches(currentPath, '/locations')) {
@@ -2054,6 +3263,11 @@ function App() {
         characterCount={myCharacters.length}
         hasDmVision={hasDmVision}
         isWorldBuilder={isWorldBuilder}
+        campaigns={knowledgeCampaigns}
+        characters={knowledgeCharacters}
+        worlds={knowledgeWorlds}
+        onSave={canManageKnowledge ? handleSaveLocation : undefined}
+        onDelete={canManageKnowledge ? handleDeleteLocation : undefined}
       />
     )
   } else if (pathMatches(currentPath, '/organisations')) {
@@ -2071,6 +3285,10 @@ function App() {
         characterCount={myCharacters.length}
         hasDmVision={hasDmVision}
         isWorldBuilder={isWorldBuilder}
+        campaigns={knowledgeCampaigns}
+        worlds={knowledgeWorlds}
+        onSave={canManageKnowledge ? handleSaveOrganisation : undefined}
+        onDelete={canManageKnowledge ? handleDeleteOrganisation : undefined}
       />
     )
   } else if (pathMatches(currentPath, '/races')) {
@@ -2080,6 +3298,9 @@ function App() {
         totalCount={races.length}
         contextDescription={knowledgeContextDescription}
         worldLookup={worldLookup}
+        worlds={knowledgeWorlds}
+        onSave={canManageRaces ? handleSaveRace : undefined}
+        onDelete={canManageRaces ? handleDeleteRace : undefined}
       />
     )
   } else if (pathMatches(currentPath, '/admin')) {
