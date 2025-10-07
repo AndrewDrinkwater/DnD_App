@@ -141,6 +141,277 @@ const seededCharacters = [
   }
 ]
 
+const seededNpcs = [
+  {
+    id: 'npc-leosin',
+    name: 'Leosin Erlanthar',
+    role: 'Harper Operative',
+    demeanor: 'Measured and insightful',
+    description: 'A monk of the Harpers piecing together the Cult of the Dragon\'s plans.',
+    worldId: 'world-faerun',
+    campaignIds: ['campaign-tiamat'],
+    characterIds: ['character-lyra'],
+    visibility: 'party',
+    tags: ['Harper network', 'Ally'],
+    location: 'Greenest refugee camp',
+    lastInteractedAt: '2024-04-15T20:05:00Z'
+  },
+  {
+    id: 'npc-rezmir',
+    name: 'Rezmir',
+    role: 'Black Wyrmspeaker',
+    demeanor: 'Cold and ruthless',
+    description:
+      'Half-dragon tactician orchestrating the movement of hoarded treasure toward the Well of Dragons.',
+    worldId: 'world-faerun',
+    campaignIds: ['campaign-tiamat'],
+    visibility: 'dm',
+    tags: ['Cult of the Dragon', 'Villain'],
+    location: 'Skyreach Castle command deck',
+    lastInteractedAt: '2024-04-11T09:15:00Z'
+  },
+  {
+    id: 'npc-ontharr',
+    name: 'Ontharr Frume',
+    role: 'Order of the Gauntlet Paladin',
+    demeanor: 'Boisterous and honorable',
+    description: 'A forthright paladin coordinating the alliance response to the cult raids.',
+    worldId: 'world-faerun',
+    campaignIds: ['campaign-tiamat'],
+    visibility: 'public',
+    tags: ['Order of the Gauntlet', 'Ally'],
+    location: 'Waterdeep chapter house',
+    lastInteractedAt: '2024-04-13T17:40:00Z'
+  }
+]
+
+const seededLocations = [
+  {
+    id: 'location-greenest',
+    name: 'Greenest',
+    type: 'Frontier town',
+    summary: 'A resilient settlement rebuilding after the opening assault from the cult.',
+    worldId: 'world-faerun',
+    campaignIds: ['campaign-tiamat'],
+    visibility: 'public',
+    tags: ['Rebuilding', 'Refugees'],
+    lastScoutedAt: '2024-04-08T14:00:00Z',
+    notes: 'Governor Nighthill is coordinating relief efforts and requests additional healers.'
+  },
+  {
+    id: 'location-cult-camp',
+    name: 'Cultist Encampment',
+    type: 'Hidden encampment',
+    summary: 'A covert camp tucked inside the Reaching Woods used to marshal stolen spoils.',
+    worldId: 'world-faerun',
+    campaignIds: ['campaign-tiamat'],
+    characterIds: ['character-lyra'],
+    visibility: 'party',
+    tags: ['Stealth', 'Reconnaissance'],
+    lastScoutedAt: '2024-04-10T22:00:00Z',
+    notes: 'Currently quiet after the raid; scouts report the bulk of forces relocated north.'
+  },
+  {
+    id: 'location-skyreach',
+    name: 'Skyreach Castle',
+    type: 'Flying fortress',
+    summary: 'An ice-carved citadel commandeered by the cult to move tribute swiftly across Faerûn.',
+    worldId: 'world-faerun',
+    campaignIds: ['campaign-tiamat'],
+    visibility: 'dm',
+    tags: ['Mobile stronghold', 'Cult of the Dragon'],
+    lastScoutedAt: '2024-04-09T06:00:00Z',
+    notes: 'Approach routes are patrolled by wyverns; anchor sigils can be sabotaged from the aerie.'
+  }
+]
+
+const seededOrganisations = [
+  {
+    id: 'organisation-harpers',
+    name: 'The Harpers',
+    alignment: 'Neutral Good',
+    summary: 'A network of agents dedicated to preserving balance and sharing vital intelligence.',
+    worldId: 'world-faerun',
+    campaignIds: ['campaign-tiamat'],
+    visibility: 'public',
+    goals: ['Disrupt the Cult of the Dragon supply lines', 'Protect Greenest refugees'],
+    influence: 'Covert cells from Baldur\'s Gate to Neverwinter coordinate nightly reports.',
+    allies: ['Order of the Gauntlet'],
+    enemies: ['Cult of the Dragon'],
+    tags: ['Ally network'],
+    lastActivityAt: '2024-04-14T10:20:00Z'
+  },
+  {
+    id: 'organisation-cult-of-the-dragon',
+    name: 'Cult of the Dragon',
+    alignment: 'Lawful Evil',
+    summary: 'Fanatics labouring to summon Tiamat through ritual hoarding and ruthless raids.',
+    worldId: 'world-faerun',
+    campaignIds: ['campaign-tiamat'],
+    visibility: 'dm',
+    goals: ['Deliver treasure caravans to the Well of Dragons', 'Recruit chromatic dragons to the cause'],
+    influence: 'Cells stretch from the Mere of Dead Men to the Sunset Mountains.',
+    allies: ['Red Wizards of Thay'],
+    enemies: ['Harpers', 'Emerald Enclave'],
+    tags: ['Primary antagonist'],
+    lastActivityAt: '2024-04-15T05:45:00Z'
+  },
+  {
+    id: 'organisation-order-of-the-gauntlet',
+    name: 'Order of the Gauntlet',
+    alignment: 'Lawful Good',
+    summary: 'A coalition of zealous knights and clerics sworn to smite the forces of evil.',
+    worldId: 'world-faerun',
+    campaignIds: ['campaign-tiamat'],
+    visibility: 'party',
+    goals: ['Fortify Waterdeep against retaliatory strikes', 'Escort refugees toward the north'],
+    influence: 'Bastions established along the Coast Way rally local militias.',
+    allies: ['The Harpers', 'Emerald Enclave'],
+    tags: ['Alliance'],
+    lastActivityAt: '2024-04-12T16:30:00Z'
+  }
+]
+
+const seededRaces = [
+  {
+    id: 'race-lightfoot-halfling',
+    name: 'Lightfoot Halfling',
+    description:
+      'Lightfoot halflings are nimble and unassuming, easily slipping through crowds or fading from notice.',
+    traits: ['Naturally Stealthy', 'Lucky', 'Brave'],
+    worldId: 'world-faerun',
+    availability: 'Common',
+    favoredClasses: ['Bard', 'Rogue'],
+    updatedAt: '2024-03-22T12:00:00Z'
+  },
+  {
+    id: 'race-chromatic-dragonborn',
+    name: 'Dragonborn (Chromatic)',
+    description:
+      'Chromatic dragonborn channel the fury of their draconic heritage, commanding elemental breath and resilience.',
+    traits: ['Breath Weapon', 'Damage Resistance', 'Intimidating Presence'],
+    worldId: 'world-faerun',
+    availability: 'Rare',
+    favoredClasses: ['Paladin', 'Sorcerer'],
+    updatedAt: '2024-04-01T18:30:00Z'
+  }
+]
+
+const filterKnowledgeRecords = (
+  records,
+  { isWorldBuilder, campaigns, selectedCampaignId, characters, selectedCharacterId, hasDmRole }
+) => {
+  if (!Array.isArray(records)) return []
+
+  if (isWorldBuilder) {
+    return records.filter(Boolean)
+  }
+
+  const campaignScope = selectedCampaignId ? [selectedCampaignId] : campaigns
+  const characterScope = selectedCharacterId ? [selectedCharacterId] : characters
+
+  return records.filter((record) => {
+    if (!record) return false
+
+    const visibility = (record.visibility || 'campaign').toLowerCase()
+    if (visibility === 'dm') {
+      return Boolean(hasDmRole)
+    }
+    if (visibility === 'public') {
+      return true
+    }
+
+    const recordCampaigns = Array.isArray(record.campaignIds) ? record.campaignIds : []
+    const recordCharacters = Array.isArray(record.characterIds) ? record.characterIds : []
+
+    const matchesCampaign =
+      recordCampaigns.length === 0
+        ? campaignScope.length > 0
+        : recordCampaigns.some((id) => campaignScope.includes(id))
+    const matchesCharacter =
+      recordCharacters.length === 0
+        ? false
+        : recordCharacters.some((id) => characterScope.includes(id))
+
+    if (visibility === 'character' || visibility === 'personal') {
+      return matchesCharacter
+    }
+
+    if (visibility === 'party' || visibility === 'campaign') {
+      return matchesCampaign || matchesCharacter
+    }
+
+    if (visibility === 'private') {
+      return matchesCharacter
+    }
+
+    return matchesCampaign || matchesCharacter
+  })
+}
+
+const describeKnowledgeContext = ({
+  activeCampaign,
+  activeCharacter,
+  accessibleCampaigns,
+  isWorldBuilder
+}) => {
+  if (activeCharacter) {
+    return activeCampaign
+      ? `${activeCharacter.name} · ${activeCampaign.name}`
+      : `${activeCharacter.name} (no linked campaign)`
+  }
+
+  if (activeCampaign) {
+    return `${activeCampaign.name} party knowledge`
+  }
+
+  if (isWorldBuilder) {
+    return 'All catalogued records across every campaign'
+  }
+
+  if (accessibleCampaigns.length > 1) {
+    return 'Aggregated knowledge from your active campaigns'
+  }
+
+  if (accessibleCampaigns.length === 1) {
+    return `${accessibleCampaigns[0].name} party knowledge`
+  }
+
+  return 'Select a campaign or character from the header to focus the view'
+}
+
+const describeRecordAudience = (record, { campaignLookup, characterLookup }) => {
+  const visibility = (record.visibility || 'campaign').toLowerCase()
+
+  if (visibility === 'public') {
+    return 'All adventurers'
+  }
+  if (visibility === 'dm') {
+    return 'Dungeon Masters'
+  }
+
+  const campaignNames = (Array.isArray(record.campaignIds) ? record.campaignIds : [])
+    .map((id) => campaignLookup.get(id))
+    .filter(Boolean)
+  const characterNames = (Array.isArray(record.characterIds) ? record.characterIds : [])
+    .map((id) => characterLookup.get(id))
+    .filter(Boolean)
+
+  if ((visibility === 'character' || visibility === 'personal') && characterNames.length > 0) {
+    return characterNames.join(', ')
+  }
+
+  if (campaignNames.length > 0) {
+    return campaignNames.join(', ')
+  }
+
+  if (characterNames.length > 0) {
+    return characterNames.join(', ')
+  }
+
+  return 'Party members with access'
+}
+
 const accountProfiles = {
   'user-aelar': {
     fallbackName: 'Aelar Morningstar',
@@ -185,6 +456,40 @@ const modules = [
     label: 'Characters',
     description: 'Manage your roster of heroes, sidekicks, and alter egos across worlds.',
     path: '/characters'
+  },
+  {
+    id: 'npcs',
+    label: 'NPCs',
+    description: 'Track allies, rivals, and mysteries that your parties uncover.',
+    path: '/npcs',
+    requiresCampaignAccess: true,
+    allowedCampaignRoles: ['Player', 'Dungeon Master'],
+    allowWorldBuilder: true
+  },
+  {
+    id: 'locations',
+    label: 'Locations',
+    description: 'Maintain field intel on the important places in your worlds.',
+    path: '/locations',
+    requiresCampaignAccess: true,
+    allowedCampaignRoles: ['Player', 'Dungeon Master'],
+    allowWorldBuilder: true
+  },
+  {
+    id: 'organisations',
+    label: 'Organisations',
+    description: 'Understand the factions shaping your campaign politics.',
+    path: '/organisations',
+    requiresCampaignAccess: true,
+    allowedCampaignRoles: ['Player', 'Dungeon Master'],
+    allowWorldBuilder: true
+  },
+  {
+    id: 'races',
+    label: 'Ancestries',
+    description: 'Curate the lineages and cultures available across your multiverse.',
+    requiredRoleNames: ['World Admin', 'System Administrator'],
+    path: '/races'
   },
   {
     id: 'platform-admin',
@@ -308,12 +613,12 @@ function IconButton({ label, variant = 'icon', className = '', children, ...prop
   )
 }
 
-function Card({ as: Component = 'div', variant = 'default', className = '', children, ...props }) {
+function Card({ variant = 'default', className = '', children, ...props }) {
   const classes = classNames('ui-card', `ui-card--${variant}`, className)
   return (
-    <Component className={classes} {...props}>
+    <div className={classes} {...props}>
       {children}
-    </Component>
+    </div>
   )
 }
 
@@ -347,6 +652,406 @@ function HomePage({ onEnterWorkspace }) {
           </Button>
         </div>
       </div>
+    </section>
+  )
+}
+
+function NpcDirectory({
+  records,
+  totalCount,
+  contextDescription,
+  showContextPrompt,
+  hasDmVision,
+  isWorldBuilder,
+  campaignLookup,
+  characterLookup,
+  worldLookup,
+  activeCampaign,
+  activeCharacter,
+  characterCount
+}) {
+  const emptyDescription = showContextPrompt
+    ? 'Pick a campaign or character from the header to reveal NPCs tied to them.'
+    : 'No NPCs have been catalogued for this context yet.'
+
+  return (
+    <section className="knowledge-page">
+      <header className="section-header knowledge-section-header">
+        <div>
+          <h2>NPC compendium</h2>
+          <p className="section-subtitle">{contextDescription}</p>
+        </div>
+        <Badge variant="neutral" className="knowledge-count-badge">
+          {records.length} / {totalCount} visible
+        </Badge>
+      </header>
+
+      {showContextPrompt && (
+        <p className="knowledge-context-label">
+          Select a campaign{characterCount > 0 ? ' or character' : ''} in the header to focus these results.
+        </p>
+      )}
+
+      {!showContextPrompt && (activeCampaign || activeCharacter) && (
+        <p className="knowledge-context-label">
+          Viewing through <strong>{activeCharacter ? activeCharacter.name : activeCampaign?.name}</strong>.
+        </p>
+      )}
+
+      {records.length === 0 ? (
+        <EmptyState icon="🧙" title="No NPCs visible" description={emptyDescription} />
+      ) : (
+        <div className="knowledge-grid">
+          {records.map((npc) => (
+            <article key={npc.id} className="ui-card ui-card--default knowledge-card">
+              <header className="knowledge-card-header">
+                <div>
+                  <h3>{npc.name}</h3>
+                  {npc.role && <p className="knowledge-card-subtitle">{npc.role}</p>}
+                </div>
+                {npc.tags?.length > 0 && (
+                  <div className="knowledge-card-metadata">
+                    {npc.tags.map((tag) => (
+                      <Badge key={tag} variant="neutral" className="knowledge-tag">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </header>
+              {npc.description && <p className="knowledge-card-description">{npc.description}</p>}
+              <dl className="knowledge-meta">
+                <div>
+                  <dt>World</dt>
+                  <dd>{worldLookup.get(npc.worldId) || 'Unassigned world'}</dd>
+                </div>
+                <div>
+                  <dt>Disposition</dt>
+                  <dd>{npc.demeanor || 'Unknown'}</dd>
+                </div>
+                <div>
+                  <dt>Visibility</dt>
+                  <dd>{describeRecordAudience(npc, { campaignLookup, characterLookup })}</dd>
+                </div>
+                <div>
+                  <dt>Last seen</dt>
+                  <dd>{formatRelativeTime(npc.lastInteractedAt)}</dd>
+                </div>
+              </dl>
+              {npc.location && (
+                <div className="knowledge-spotlight">
+                  <h4>Current lead</h4>
+                  <p>{npc.location}</p>
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+
+      {!isWorldBuilder && hasDmVision && (
+        <p className="knowledge-dm-note">You are seeing entries flagged for Dungeon Masters in this context.</p>
+      )}
+    </section>
+  )
+}
+
+function LocationsAtlas({
+  records,
+  totalCount,
+  contextDescription,
+  showContextPrompt,
+  campaignLookup,
+  characterLookup,
+  worldLookup,
+  activeCampaign,
+  activeCharacter,
+  characterCount,
+  hasDmVision,
+  isWorldBuilder
+}) {
+  const emptyDescription = showContextPrompt
+    ? 'Set a campaign or character context to reveal scouting intel.'
+    : 'No locations have been recorded for this context yet.'
+
+  return (
+    <section className="knowledge-page">
+      <header className="section-header knowledge-section-header">
+        <div>
+          <h2>Location atlas</h2>
+          <p className="section-subtitle">{contextDescription}</p>
+        </div>
+        <Badge variant="neutral" className="knowledge-count-badge">
+          {records.length} / {totalCount} visible
+        </Badge>
+      </header>
+
+      {showContextPrompt && (
+        <p className="knowledge-context-label">
+          Choose a campaign{characterCount > 0 ? ' or character' : ''} to narrow the field reports.
+        </p>
+      )}
+
+      {!showContextPrompt && (activeCampaign || activeCharacter) && (
+        <p className="knowledge-context-label">
+          Focused on <strong>{activeCharacter ? activeCharacter.name : activeCampaign?.name}</strong>.
+        </p>
+      )}
+
+      {records.length === 0 ? (
+        <EmptyState icon="🧭" title="No locations logged" description={emptyDescription} />
+      ) : (
+        <div className="knowledge-grid">
+          {records.map((location) => (
+            <article key={location.id} className="ui-card ui-card--default knowledge-card">
+              <header className="knowledge-card-header">
+                <div>
+                  <h3>{location.name}</h3>
+                  {location.type && <p className="knowledge-card-subtitle">{location.type}</p>}
+                </div>
+                {location.tags?.length > 0 && (
+                  <div className="knowledge-card-metadata">
+                    {location.tags.map((tag) => (
+                      <span key={tag} className="knowledge-chip knowledge-chip--tag">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </header>
+              {location.summary && <p className="knowledge-card-description">{location.summary}</p>}
+              <dl className="knowledge-meta">
+                <div>
+                  <dt>World</dt>
+                  <dd>{worldLookup.get(location.worldId) || 'Unassigned world'}</dd>
+                </div>
+                <div>
+                  <dt>Visibility</dt>
+                  <dd>{describeRecordAudience(location, { campaignLookup, characterLookup })}</dd>
+                </div>
+                <div>
+                  <dt>Last scouted</dt>
+                  <dd>{formatRelativeTime(location.lastScoutedAt)}</dd>
+                </div>
+              </dl>
+              {location.notes && (
+                <div className="knowledge-spotlight">
+                  <h4>Field notes</h4>
+                  <p>{location.notes}</p>
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+
+      {!isWorldBuilder && hasDmVision && (
+        <p className="knowledge-dm-note">DM-only entries are included because of your campaign role.</p>
+      )}
+    </section>
+  )
+}
+
+function OrganisationsLedger({
+  records,
+  totalCount,
+  contextDescription,
+  showContextPrompt,
+  campaignLookup,
+  characterLookup,
+  worldLookup,
+  activeCampaign,
+  activeCharacter,
+  characterCount,
+  hasDmVision,
+  isWorldBuilder
+}) {
+  const emptyDescription = showContextPrompt
+    ? 'Select a campaign or character to reveal the factions relevant to them.'
+    : 'No organisations have been catalogued for this context yet.'
+
+  return (
+    <section className="knowledge-page">
+      <header className="section-header knowledge-section-header">
+        <div>
+          <h2>Faction ledger</h2>
+          <p className="section-subtitle">{contextDescription}</p>
+        </div>
+        <Badge variant="neutral" className="knowledge-count-badge">
+          {records.length} / {totalCount} visible
+        </Badge>
+      </header>
+
+      {showContextPrompt && (
+        <p className="knowledge-context-label">
+          Focus a campaign{characterCount > 0 ? ' or character' : ''} to see faction intel tailored to them.
+        </p>
+      )}
+
+      {!showContextPrompt && (activeCampaign || activeCharacter) && (
+        <p className="knowledge-context-label">
+          Focused on <strong>{activeCharacter ? activeCharacter.name : activeCampaign?.name}</strong>.
+        </p>
+      )}
+
+      {records.length === 0 ? (
+        <EmptyState icon="🛡️" title="No organisations logged" description={emptyDescription} />
+      ) : (
+        <div className="knowledge-grid">
+          {records.map((organisation) => (
+            <article key={organisation.id} className="ui-card ui-card--default knowledge-card">
+              <header className="knowledge-card-header">
+                <div>
+                  <h3>{organisation.name}</h3>
+                  {organisation.alignment && (
+                    <p className="knowledge-card-subtitle">{organisation.alignment}</p>
+                  )}
+                </div>
+                {organisation.tags?.length > 0 && (
+                  <div className="knowledge-card-metadata">
+                    {organisation.tags.map((tag) => (
+                      <span key={tag} className="knowledge-chip knowledge-chip--tag">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </header>
+              {organisation.summary && (
+                <p className="knowledge-card-description">{organisation.summary}</p>
+              )}
+              <dl className="knowledge-meta">
+                <div>
+                  <dt>World</dt>
+                  <dd>{worldLookup.get(organisation.worldId) || 'Unassigned world'}</dd>
+                </div>
+                {organisation.influence && (
+                  <div>
+                    <dt>Influence</dt>
+                    <dd>{organisation.influence}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>Visibility</dt>
+                  <dd>{describeRecordAudience(organisation, { campaignLookup, characterLookup })}</dd>
+                </div>
+                <div>
+                  <dt>Last activity</dt>
+                  <dd>{formatRelativeTime(organisation.lastActivityAt)}</dd>
+                </div>
+              </dl>
+              {organisation.goals?.length > 0 && (
+                <div className="knowledge-spotlight">
+                  <h4>Current goals</h4>
+                  <ul className="knowledge-list">
+                    {organisation.goals.map((goal) => (
+                      <li key={goal}>{goal}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {(organisation.allies?.length > 0 || organisation.enemies?.length > 0) && (
+                <div className="knowledge-relationships">
+                  {organisation.allies?.length > 0 && (
+                    <div>
+                      <h4>Allies</h4>
+                      <div className="knowledge-chip-row">
+                        {organisation.allies.map((ally) => (
+                          <span key={ally} className="knowledge-chip knowledge-chip--ally">
+                            {ally}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {organisation.enemies?.length > 0 && (
+                    <div>
+                      <h4>Adversaries</h4>
+                      <div className="knowledge-chip-row">
+                        {organisation.enemies.map((enemy) => (
+                          <span key={enemy} className="knowledge-chip knowledge-chip--enemy">
+                            {enemy}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+
+      {!isWorldBuilder && hasDmVision && (
+        <p className="knowledge-dm-note">DM-only faction intel is included because of your permissions.</p>
+      )}
+    </section>
+  )
+}
+
+function RaceLibrary({ records, totalCount, contextDescription, worldLookup }) {
+  return (
+    <section className="knowledge-page">
+      <header className="section-header knowledge-section-header">
+        <div>
+          <h2>Ancestry library</h2>
+          <p className="section-subtitle">{contextDescription}</p>
+        </div>
+        <Badge variant="neutral" className="knowledge-count-badge">
+          {records.length} / {totalCount} available
+        </Badge>
+      </header>
+
+      {records.length === 0 ? (
+        <EmptyState
+          icon="🧬"
+          title="No ancestries curated"
+          description="Add your first ancestry to make it available to campaign builders."
+        />
+      ) : (
+        <div className="knowledge-grid">
+          {records.map((race) => (
+            <article key={race.id} className="ui-card ui-card--default knowledge-card">
+              <header className="knowledge-card-header">
+                <div>
+                  <h3>{race.name}</h3>
+                  {race.availability && (
+                    <p className="knowledge-card-subtitle">{race.availability}</p>
+                  )}
+                </div>
+              </header>
+              {race.description && <p className="knowledge-card-description">{race.description}</p>}
+              <dl className="knowledge-meta">
+                <div>
+                  <dt>World</dt>
+                  <dd>{worldLookup.get(race.worldId) || 'Unassigned world'}</dd>
+                </div>
+                {race.favoredClasses?.length > 0 && (
+                  <div>
+                    <dt>Favoured classes</dt>
+                    <dd>{race.favoredClasses.join(', ')}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>Last updated</dt>
+                  <dd>{formatRelativeTime(race.updatedAt)}</dd>
+                </div>
+              </dl>
+              {race.traits?.length > 0 && (
+                <div className="knowledge-spotlight">
+                  <h4>Signature traits</h4>
+                  <ul className="knowledge-list">
+                    {race.traits.map((trait) => (
+                      <li key={trait}>{trait}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   )
 }
@@ -385,6 +1090,14 @@ function App() {
   const [characters, setCharacters] = useState(() =>
     Array.isArray(storedState?.characters) ? storedState.characters : seededCharacters
   )
+  const [npcs, setNpcs] = useState(() => (Array.isArray(storedState?.npcs) ? storedState.npcs : seededNpcs))
+  const [locations, setLocations] = useState(() =>
+    Array.isArray(storedState?.locations) ? storedState.locations : seededLocations
+  )
+  const [organisations, setOrganisations] = useState(() =>
+    Array.isArray(storedState?.organisations) ? storedState.organisations : seededOrganisations
+  )
+  const [races] = useState(() => (Array.isArray(storedState?.races) ? storedState.races : seededRaces))
   const [appContext, setAppContext] = useState(() => {
     if (storedState?.appContext && typeof storedState.appContext === 'object') {
       return {
@@ -555,6 +1268,11 @@ function App() {
     [currentUserCapabilityRoles, assignedRoleNames]
   )
 
+  const isWorldBuilder = useMemo(
+    () => isSystemAdmin || assignedRoleNames.includes('World Admin'),
+    [isSystemAdmin, assignedRoleNames]
+  )
+
   const permissions = useMemo(() => {
     const modulePermissions = capabilityMatrix['platform-admin'] || {}
     const derivedPermissions = new Set()
@@ -595,6 +1313,153 @@ function App() {
     return characters.filter((character) => character.ownerId === authenticatedUserId)
   }, [characters, authenticatedUserId])
 
+  const campaignRoleNames = useMemo(() => {
+    if (!authenticatedUserId) return []
+    const names = new Set()
+    accessibleCampaigns.forEach((campaign) => {
+      if (!Array.isArray(campaign.assignments)) return
+      campaign.assignments.forEach((assignment) => {
+        if (assignment.userId === authenticatedUserId) {
+          const roleName = roles.find((role) => role.id === assignment.roleId)?.name
+          if (roleName) {
+            names.add(roleName)
+          }
+        }
+      })
+    })
+    return Array.from(names)
+  }, [accessibleCampaigns, authenticatedUserId, roles])
+
+  const hasDmVision = useMemo(
+    () => isWorldBuilder || campaignRoleNames.includes('Dungeon Master'),
+    [isWorldBuilder, campaignRoleNames]
+  )
+
+  const accessibleCampaignIds = useMemo(
+    () => accessibleCampaigns.map((campaign) => campaign.id),
+    [accessibleCampaigns]
+  )
+
+  const accessibleCharacterIds = useMemo(() => myCharacters.map((character) => character.id), [myCharacters])
+
+  const selectedCampaignId = useMemo(() => {
+    if (!appContext.campaignId) return ''
+    if (isWorldBuilder) return appContext.campaignId
+    return accessibleCampaignIds.includes(appContext.campaignId) ? appContext.campaignId : ''
+  }, [appContext.campaignId, accessibleCampaignIds, isWorldBuilder])
+
+  const selectedCharacterId = useMemo(() => {
+    if (!appContext.characterId) return ''
+    if (isWorldBuilder) return appContext.characterId
+    return accessibleCharacterIds.includes(appContext.characterId) ? appContext.characterId : ''
+  }, [appContext.characterId, accessibleCharacterIds, isWorldBuilder])
+
+  const selectedCampaign = useMemo(
+    () => campaigns.find((campaign) => campaign.id === selectedCampaignId) || null,
+    [campaigns, selectedCampaignId]
+  )
+
+  const selectedCharacter = useMemo(
+    () => characters.find((character) => character.id === selectedCharacterId) || null,
+    [characters, selectedCharacterId]
+  )
+
+  const visibleNpcs = useMemo(() => {
+    const filtered = filterKnowledgeRecords(npcs, {
+      isWorldBuilder,
+      campaigns: accessibleCampaignIds,
+      selectedCampaignId,
+      characters: accessibleCharacterIds,
+      selectedCharacterId,
+      hasDmRole: hasDmVision
+    })
+    return [...filtered].sort((a, b) => a.name.localeCompare(b.name))
+  }, [
+    npcs,
+    isWorldBuilder,
+    accessibleCampaignIds,
+    selectedCampaignId,
+    accessibleCharacterIds,
+    selectedCharacterId,
+    hasDmVision
+  ])
+
+  const visibleLocations = useMemo(() => {
+    const filtered = filterKnowledgeRecords(locations, {
+      isWorldBuilder,
+      campaigns: accessibleCampaignIds,
+      selectedCampaignId,
+      characters: accessibleCharacterIds,
+      selectedCharacterId,
+      hasDmRole: hasDmVision
+    })
+    return [...filtered].sort((a, b) => a.name.localeCompare(b.name))
+  }, [
+    locations,
+    isWorldBuilder,
+    accessibleCampaignIds,
+    selectedCampaignId,
+    accessibleCharacterIds,
+    selectedCharacterId,
+    hasDmVision
+  ])
+
+  const visibleOrganisations = useMemo(() => {
+    const filtered = filterKnowledgeRecords(organisations, {
+      isWorldBuilder,
+      campaigns: accessibleCampaignIds,
+      selectedCampaignId,
+      characters: accessibleCharacterIds,
+      selectedCharacterId,
+      hasDmRole: hasDmVision
+    })
+    return [...filtered].sort((a, b) => a.name.localeCompare(b.name))
+  }, [
+    organisations,
+    isWorldBuilder,
+    accessibleCampaignIds,
+    selectedCampaignId,
+    accessibleCharacterIds,
+    selectedCharacterId,
+    hasDmVision
+  ])
+
+  const sortedRaces = useMemo(() => [...races].sort((a, b) => a.name.localeCompare(b.name)), [races])
+
+  const knowledgeContextDescription = useMemo(
+    () =>
+      describeKnowledgeContext({
+        activeCampaign: selectedCampaign,
+        activeCharacter: selectedCharacter,
+        accessibleCampaigns,
+        isWorldBuilder
+      }),
+    [selectedCampaign, selectedCharacter, accessibleCampaigns, isWorldBuilder]
+  )
+
+  const shouldPromptForContext = useMemo(
+    () => !isWorldBuilder && accessibleCampaigns.length > 0 && !selectedCampaign && !selectedCharacter,
+    [isWorldBuilder, accessibleCampaigns, selectedCampaign, selectedCharacter]
+  )
+
+  const campaignLookup = useMemo(() => {
+    const map = new Map()
+    campaigns.forEach((campaign) => map.set(campaign.id, campaign.name))
+    return map
+  }, [campaigns])
+
+  const characterLookup = useMemo(() => {
+    const map = new Map()
+    characters.forEach((character) => map.set(character.id, character.name))
+    return map
+  }, [characters])
+
+  const worldLookup = useMemo(() => {
+    const map = new Map()
+    worlds.forEach((world) => map.set(world.id, world.name))
+    return map
+  }, [worlds])
+
   useEffect(() => {
     if (authenticatedUserId && !resolvedCurrentUser) {
       setSession({ authenticatedUserId: null })
@@ -627,11 +1492,28 @@ function App() {
       campaigns,
       worlds,
       characters,
+      npcs,
+      locations,
+      organisations,
+      races,
       session,
       appContext,
       ui: { sidebarPinned }
     })
-  }, [users, roles, campaigns, worlds, characters, session, appContext, sidebarPinned])
+  }, [
+    users,
+    roles,
+    campaigns,
+    worlds,
+    characters,
+    npcs,
+    locations,
+    organisations,
+    races,
+    session,
+    appContext,
+    sidebarPinned
+  ])
 
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return undefined
@@ -666,11 +1548,28 @@ function App() {
           return false
         }
         if (Array.isArray(module.requiredRoleNames) && module.requiredRoleNames.length > 0) {
-          return module.requiredRoleNames.some((roleName) => assignedRoleNames.includes(roleName))
+          const matchesRole = module.requiredRoleNames.some((roleName) => assignedRoleNames.includes(roleName))
+          if (!matchesRole && !(module.allowWorldBuilder && isWorldBuilder)) {
+            return false
+          }
+        }
+        if (Array.isArray(module.allowedCampaignRoles) && module.allowedCampaignRoles.length > 0) {
+          const matchesCampaignRole = module.allowedCampaignRoles.some((roleName) =>
+            campaignRoleNames.includes(roleName)
+          )
+          if (!matchesCampaignRole && !isWorldBuilder) {
+            return false
+          }
+        }
+        if (module.requiresCampaignAccess) {
+          if (isWorldBuilder) {
+            return true
+          }
+          return accessibleCampaigns.length > 0
         }
         return true
       }),
-    [permissions, assignedRoleNames]
+    [permissions, assignedRoleNames, campaignRoleNames, accessibleCampaigns, isWorldBuilder]
   )
 
   const activeModuleId = useMemo(() => {
@@ -916,6 +1815,30 @@ function App() {
         character.campaignId === campaignId ? { ...character, campaignId: '' } : character
       )
     )
+    setNpcs((prev) =>
+      prev.map((npc) => {
+        if (!Array.isArray(npc.campaignIds)) return npc
+        const nextCampaignIds = npc.campaignIds.filter((id) => id !== campaignId)
+        if (nextCampaignIds.length === npc.campaignIds.length) return npc
+        return { ...npc, campaignIds: nextCampaignIds }
+      })
+    )
+    setLocations((prev) =>
+      prev.map((location) => {
+        if (!Array.isArray(location.campaignIds)) return location
+        const nextCampaignIds = location.campaignIds.filter((id) => id !== campaignId)
+        if (nextCampaignIds.length === location.campaignIds.length) return location
+        return { ...location, campaignIds: nextCampaignIds }
+      })
+    )
+    setOrganisations((prev) =>
+      prev.map((organisation) => {
+        if (!Array.isArray(organisation.campaignIds)) return organisation
+        const nextCampaignIds = organisation.campaignIds.filter((id) => id !== campaignId)
+        if (nextCampaignIds.length === organisation.campaignIds.length) return organisation
+        return { ...organisation, campaignIds: nextCampaignIds }
+      })
+    )
     setAppContext((prev) =>
       prev.campaignId === campaignId ? { ...prev, campaignId: '' } : prev
     )
@@ -988,6 +1911,34 @@ function App() {
 
   const handleDeleteCharacter = (characterId) => {
     setCharacters((prev) => prev.filter((character) => character.id !== characterId))
+    setNpcs((prev) =>
+      prev.map((npc) => {
+        if (!Array.isArray(npc.characterIds) || npc.characterIds.length === 0) return npc
+        const nextCharacterIds = npc.characterIds.filter((id) => id !== characterId)
+        if (nextCharacterIds.length === npc.characterIds.length) return npc
+        return { ...npc, characterIds: nextCharacterIds }
+      })
+    )
+    setLocations((prev) =>
+      prev.map((location) => {
+        if (!Array.isArray(location.characterIds) || location.characterIds.length === 0) {
+          return location
+        }
+        const nextCharacterIds = location.characterIds.filter((id) => id !== characterId)
+        if (nextCharacterIds.length === location.characterIds.length) return location
+        return { ...location, characterIds: nextCharacterIds }
+      })
+    )
+    setOrganisations((prev) =>
+      prev.map((organisation) => {
+        if (!Array.isArray(organisation.characterIds) || organisation.characterIds.length === 0) {
+          return organisation
+        }
+        const nextCharacterIds = organisation.characterIds.filter((id) => id !== characterId)
+        if (nextCharacterIds.length === organisation.characterIds.length) return organisation
+        return { ...organisation, characterIds: nextCharacterIds }
+      })
+    )
     setAppContext((prev) =>
       prev.characterId === characterId ? { ...prev, characterId: '' } : prev
     )
@@ -1075,6 +2026,66 @@ function App() {
         onSelectCampaign={(campaignId) =>
           setAppContext((prev) => ({ ...prev, campaignId }))
         }
+      />
+    )
+  } else if (pathMatches(currentPath, '/npcs')) {
+    mainContent = (
+      <NpcDirectory
+        records={visibleNpcs}
+        totalCount={npcs.length}
+        contextDescription={knowledgeContextDescription}
+        showContextPrompt={shouldPromptForContext}
+        hasDmVision={hasDmVision}
+        isWorldBuilder={isWorldBuilder}
+        campaignLookup={campaignLookup}
+        characterLookup={characterLookup}
+        worldLookup={worldLookup}
+        activeCampaign={selectedCampaign}
+        activeCharacter={selectedCharacter}
+        characterCount={myCharacters.length}
+      />
+    )
+  } else if (pathMatches(currentPath, '/locations')) {
+    mainContent = (
+      <LocationsAtlas
+        records={visibleLocations}
+        totalCount={locations.length}
+        contextDescription={knowledgeContextDescription}
+        showContextPrompt={shouldPromptForContext}
+        campaignLookup={campaignLookup}
+        characterLookup={characterLookup}
+        worldLookup={worldLookup}
+        activeCampaign={selectedCampaign}
+        activeCharacter={selectedCharacter}
+        characterCount={myCharacters.length}
+        hasDmVision={hasDmVision}
+        isWorldBuilder={isWorldBuilder}
+      />
+    )
+  } else if (pathMatches(currentPath, '/organisations')) {
+    mainContent = (
+      <OrganisationsLedger
+        records={visibleOrganisations}
+        totalCount={organisations.length}
+        contextDescription={knowledgeContextDescription}
+        showContextPrompt={shouldPromptForContext}
+        campaignLookup={campaignLookup}
+        characterLookup={characterLookup}
+        worldLookup={worldLookup}
+        activeCampaign={selectedCampaign}
+        activeCharacter={selectedCharacter}
+        characterCount={myCharacters.length}
+        hasDmVision={hasDmVision}
+        isWorldBuilder={isWorldBuilder}
+      />
+    )
+  } else if (pathMatches(currentPath, '/races')) {
+    mainContent = (
+      <RaceLibrary
+        records={sortedRaces}
+        totalCount={races.length}
+        contextDescription={knowledgeContextDescription}
+        worldLookup={worldLookup}
       />
     )
   } else if (pathMatches(currentPath, '/admin')) {
@@ -2031,9 +3042,6 @@ function CampaignsPage({
         </div>
       </div>
     )
-
-  const formatTimestamp = (value) =>
-    value ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—'
 
   const formatCardTimestamp = (value) => formatRelativeTime(value)
 
