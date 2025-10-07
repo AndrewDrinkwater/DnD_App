@@ -463,36 +463,6 @@ function App() {
 
   const activeModule = useMemo(() => modules.find((item) => item.id === activeModuleId) || null, [activeModuleId])
 
-  const breadcrumbs = useMemo(() => {
-    const trail = ['Home']
-
-    if (profileOpen) {
-      trail.push('My Profile')
-      return trail
-    }
-
-    if (activeModule) {
-      trail.push(activeModule.label)
-    }
-
-    if (activeSectionId) {
-      const section = sections.find((item) => item.id === activeSectionId)
-      if (section) {
-        trail.push(section.label)
-      }
-    }
-
-    return trail
-  }, [profileOpen, activeModule, activeSectionId])
-
-  const moduleDescription = useMemo(() => {
-    if (profileOpen) {
-      return 'Review and manage your personal account information, preferences, and security.'
-    }
-    if (!activeModuleId) return ''
-    return activeModule?.description || ''
-  }, [profileOpen, activeModuleId, activeModule])
-
   const sidebarModules = useMemo(
     () =>
       modules.filter((module) => {
@@ -860,18 +830,6 @@ function App() {
               </span>
             </button>
           </div>
-        </div>
-        <div className="header-module">
-          <nav className="breadcrumbs" aria-label="Breadcrumb">
-            {breadcrumbs.map((item, index) => (
-              <span key={item} className="breadcrumb-item">
-                {item}
-                {index < breadcrumbs.length - 1 && <span aria-hidden="true">›</span>}
-              </span>
-            ))}
-          </nav>
-          <h1 className="module-title">{breadcrumbs[breadcrumbs.length - 1]}</h1>
-          {moduleDescription && <p className="module-description">{moduleDescription}</p>}
         </div>
       </header>
 

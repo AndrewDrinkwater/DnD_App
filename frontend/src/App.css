@@ -249,11 +249,12 @@
   background: linear-gradient(180deg, rgba(12, 74, 110, 0.35) 0%, rgba(8, 51, 68, 0.5) 18%, #f8fafc 18%, #f8fafc 100%);
 }
 
+
 .app-header {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  padding: 1rem 2.5rem 1.5rem;
+  gap: 0.75rem;
+  padding: 1rem 2.5rem 1.25rem;
   background: linear-gradient(180deg, #0b394c 0%, #0b4c41 100%);
   color: #ecfdf5;
   position: sticky;
@@ -314,16 +315,6 @@
   color: rgba(236, 253, 245, 0.75);
 }
 
-.header-module {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  min-width: 0;
-  width: 100%;
-  border-top: 1px solid rgba(236, 253, 245, 0.18);
-  padding-top: 1rem;
-}
-
 .header-actions {
   display: flex;
   align-items: center;
@@ -366,40 +357,6 @@
 .context-select select:focus-visible {
   outline: 2px solid rgba(14, 165, 233, 0.75);
   outline-offset: 2px;
-}
-
-.breadcrumbs {
-  display: flex;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: rgba(226, 245, 239, 0.75);
-  align-items: center;
-}
-
-.breadcrumb-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.breadcrumb-item span[aria-hidden='true'] {
-  margin: 0 0.25rem;
-  color: rgba(226, 245, 239, 0.5);
-}
-
-.module-title {
-  margin: 0;
-  font-size: 2.05rem;
-  font-weight: 700;
-  color: #ecfdf5;
-  letter-spacing: 0.01em;
-}
-
-.module-description {
-  margin: 0;
-  max-width: 42rem;
-  color: rgba(226, 245, 239, 0.85);
-  line-height: 1.6;
 }
 
 .current-user-button {
@@ -1312,8 +1269,8 @@ button.primary.full-width {
   }
 
   .app-header {
-    padding: 1.25rem 1.75rem 1.5rem;
-    gap: 1rem;
+    padding: 1.1rem 1.75rem 1.35rem;
+    gap: 0.85rem;
   }
 
   .header-bar {
@@ -1359,27 +1316,42 @@ button.primary.full-width {
 
 @media (max-width: 640px) {
   .app-header {
-    padding: 1.25rem 1.25rem 1.25rem;
+    padding: 1rem 1.25rem 1.1rem;
   }
 
-  .brand-identity {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.75rem;
+  .brand-logo {
+    display: none;
   }
 
   .header-actions {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .context-switchers {
+    flex-direction: row;
+    gap: 0.75rem;
+  }
+
+  .context-select {
+    flex: 1 1 0;
   }
 
   .current-user-button {
-    width: 100%;
-    justify-content: space-between;
+    width: auto;
+    padding: 0.4rem 0.6rem;
+    gap: 0.4rem;
   }
 
-  .user-meta {
-    align-items: flex-end;
+  .current-user-button .user-meta {
+    display: none;
+  }
+
+  .user-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1.05rem;
   }
 
   .module-content {
@@ -1388,9 +1360,6 @@ button.primary.full-width {
     border-top-right-radius: 1.25rem;
   }
 
-  .module-title {
-    font-size: 1.6rem;
-  }
 }
 
 .roles-fieldset {
