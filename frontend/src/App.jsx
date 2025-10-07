@@ -283,6 +283,17 @@ function App() {
   const currentUserStatus = resolvedCurrentUser?.status ?? 'Active'
   const currentUserTitle = currentAccountProfile?.title ?? 'Adventurer'
   const currentUserPreferences = currentAccountProfile?.preferences ?? {}
+  const currentUserInitials = useMemo(() => {
+    const source = (currentUserDisplayName || '').trim()
+    if (!source) return 'AD'
+    const segments = source.split(/\s+/).filter(Boolean)
+    if (segments.length === 0) return 'AD'
+    const initials = segments
+      .slice(0, 2)
+      .map((segment) => segment.charAt(0).toUpperCase())
+      .join('')
+    return initials || 'AD'
+  }, [currentUserDisplayName])
   const currentUserCapabilityRoles = useMemo(() => {
     const capabilitySet = new Set(currentAccountProfile?.capabilityRoles ?? [])
 
@@ -783,6 +794,12 @@ function App() {
             ×
           </button>
         </div>
+        <div className="sidebar-brand" aria-label="DnD platform workspace">
+          <span className="sidebar-logo" aria-hidden="true">
+            🛡️
+          </span>
+          <span className="sidebar-title">Planar Service Hub</span>
+        </div>
         <nav className="sidebar-nav">
           {sidebarModules.length === 0 && <p className="sidebar-empty">No modules available for your role.</p>}
           {sidebarModules.map((module) => {
@@ -821,82 +838,93 @@ function App() {
 
       <div className="shell-main">
         <header className="app-header">
-          <div className="header-primary">
-            <button
-              type="button"
-              className="sidebar-trigger"
-              onClick={() => setSidebarMobileOpen(true)}
-              aria-label="Open navigation"
-              aria-expanded={sidebarMobileOpen}
-            >
-              ☰
-            </button>
-            <div className="header-info">
-              <div className="header-brand">
-                <span className="brand-mark">DnD Platform</span>
-                <p className="brand-subtitle">Orchestrate adventures with confidence.</p>
+          <div className="header-bar">
+            <div className="brand-group">
+              <button
+                type="button"
+                className="sidebar-trigger"
+                onClick={() => setSidebarMobileOpen(true)}
+                aria-label="Open navigation"
+                aria-expanded={sidebarMobileOpen}
+              >
+                <span className="sr-only">Open navigation</span>
+                <span aria-hidden="true">☰</span>
+              </button>
+              <div className="brand-identity">
+                <div className="brand-logo" aria-hidden="true">
+                  <span>SN</span>
+                </div>
+                <div className="brand-copy">
+                  <span className="brand-title">Planar Service Hub</span>
+                  <span className="brand-subtitle">Adventuring operations workspace</span>
+                </div>
               </div>
-              <div className="header-module">
-                <nav className="breadcrumbs" aria-label="Breadcrumb">
-                  {breadcrumbs.map((item, index) => (
-                    <span key={item} className="breadcrumb-item">
-                      {item}
-                      {index < breadcrumbs.length - 1 && <span aria-hidden="true">›</span>}
-                    </span>
-                  ))}
-                </nav>
-                <h1 className="module-title">{breadcrumbs[breadcrumbs.length - 1]}</h1>
-                {moduleDescription && <p className="module-description">{moduleDescription}</p>}
+            </div>
+            <div className="header-actions">
+              <div className="context-switchers" aria-label="Active context selection">
+                <label className="context-select">
+                  <span>Campaign</span>
+                  <select
+                    value={appContext.campaignId}
+                    onChange={(event) =>
+                      setAppContext((prev) => ({ ...prev, campaignId: event.target.value }))
+                    }
+                  >
+                    <option value="">No campaign selected</option>
+                    {accessibleCampaigns.map((campaign) => (
+                      <option key={campaign.id} value={campaign.id}>
+                        {campaign.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="context-select">
+                  <span>Character</span>
+                  <select
+                    value={appContext.characterId}
+                    onChange={(event) =>
+                      setAppContext((prev) => ({ ...prev, characterId: event.target.value }))
+                    }
+                  >
+                    <option value="">No character selected</option>
+                    {myCharacters.map((character) => (
+                      <option key={character.id} value={character.id}>
+                        {character.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
+              <button
+                type="button"
+                className="current-user-button"
+                onClick={() => {
+                  setProfileOpen(true)
+                  setSidebarMobileOpen(false)
+                }}
+                aria-label="Open my profile"
+              >
+                <span className="user-avatar" aria-hidden="true">
+                  {currentUserInitials}
+                </span>
+                <span className="user-meta">
+                  <span className="user-name">{currentUserDisplayName}</span>
+                  <span className="user-role">{currentUserRoleNames.join(', ')}</span>
+                </span>
+              </button>
             </div>
           </div>
-          <div className="header-actions">
-            <div className="context-switchers" aria-label="Active context selection">
-              <label className="context-select">
-                <span>Campaign</span>
-                <select
-                  value={appContext.campaignId}
-                  onChange={(event) =>
-                    setAppContext((prev) => ({ ...prev, campaignId: event.target.value }))
-                  }
-                >
-                  <option value="">No campaign selected</option>
-                  {accessibleCampaigns.map((campaign) => (
-                    <option key={campaign.id} value={campaign.id}>
-                      {campaign.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="context-select">
-                <span>Character</span>
-                <select
-                  value={appContext.characterId}
-                  onChange={(event) =>
-                    setAppContext((prev) => ({ ...prev, characterId: event.target.value }))
-                  }
-                >
-                  <option value="">No character selected</option>
-                  {myCharacters.map((character) => (
-                    <option key={character.id} value={character.id}>
-                      {character.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <button
-              type="button"
-              className="current-user-button"
-              onClick={() => {
-                setProfileOpen(true)
-                setSidebarMobileOpen(false)
-              }}
-              aria-label="Open my profile"
-            >
-              <span className="user-name">{currentUserDisplayName}</span>
-              <span className="user-role">{currentUserRoleNames.join(', ')}</span>
-            </button>
+          <div className="header-module">
+            <nav className="breadcrumbs" aria-label="Breadcrumb">
+              {breadcrumbs.map((item, index) => (
+                <span key={item} className="breadcrumb-item">
+                  {item}
+                  {index < breadcrumbs.length - 1 && <span aria-hidden="true">›</span>}
+                </span>
+              ))}
+            </nav>
+            <h1 className="module-title">{breadcrumbs[breadcrumbs.length - 1]}</h1>
+            {moduleDescription && <p className="module-description">{moduleDescription}</p>}
           </div>
         </header>
 
