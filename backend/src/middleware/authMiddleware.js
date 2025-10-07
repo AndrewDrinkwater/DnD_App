@@ -1,4 +1,4 @@
-import { User } from '../models/index.js';
+import { User, SystemRole } from '../models/index.js';
 import { verifyToken } from '../utils/token.js';
 
 export const authenticateToken = async (req, res, next) => {
@@ -12,7 +12,8 @@ export const authenticateToken = async (req, res, next) => {
   try {
     const payload = verifyToken(token);
     const user = await User.findByPk(payload.sub, {
-      attributes: ['id', 'username', 'email', 'active']
+      attributes: ['id', 'username', 'email', 'active'],
+      include: [{ model: SystemRole, as: 'systemRoles', through: { attributes: [] }, attributes: ['id', 'name'] }]
     });
 
     if (!user || !user.active) {

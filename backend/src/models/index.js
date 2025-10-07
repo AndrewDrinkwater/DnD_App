@@ -8,6 +8,20 @@ import CampaignRole from './CampaignRole.js';
 import UserCampaignRole from './UserCampaignRole.js';
 import Character from './Character.js';
 import CharacterCampaign from './CharacterCampaign.js';
+import Race from './Race.js';
+import LocationType from './LocationType.js';
+import Location from './Location.js';
+import LocationVisibility from './LocationVisibility.js';
+import OrganisationType from './OrganisationType.js';
+import Organisation from './Organisation.js';
+import OrganisationVisibility from './OrganisationVisibility.js';
+import OrganisationLocation from './OrganisationLocation.js';
+import OrganisationRelationship from './OrganisationRelationship.js';
+import NpcType from './NpcType.js';
+import Npc from './Npc.js';
+import NpcVisibility from './NpcVisibility.js';
+import NpcNote from './NpcNote.js';
+import NpcRelationship from './NpcRelationship.js';
 
 User.hasMany(Character, { as: 'characters', foreignKey: 'user_id' });
 Character.belongsTo(User, { as: 'owner', foreignKey: 'user_id' });
@@ -86,6 +100,55 @@ CharacterCampaign.belongsTo(Campaign, { as: 'campaign', foreignKey: 'campaign_id
 Character.hasMany(CharacterCampaign, { as: 'characterCampaigns', foreignKey: 'character_id' });
 Campaign.hasMany(CharacterCampaign, { as: 'characterCampaigns', foreignKey: 'campaign_id' });
 
+World.hasMany(Location, { as: 'locations', foreignKey: 'world_id' });
+Location.belongsTo(World, { as: 'world', foreignKey: 'world_id' });
+Location.belongsTo(LocationType, { as: 'type', foreignKey: 'type_id' });
+Location.belongsTo(User, { as: 'creator', foreignKey: 'created_by' });
+Location.hasMany(LocationVisibility, { as: 'visibility', foreignKey: 'location_id' });
+LocationVisibility.belongsTo(Location, { as: 'location', foreignKey: 'location_id' });
+LocationVisibility.belongsTo(Campaign, { as: 'campaign', foreignKey: 'campaign_id' });
+LocationVisibility.belongsTo(User, { as: 'player', foreignKey: 'player_id' });
+
+World.hasMany(Organisation, { as: 'organisations', foreignKey: 'world_id' });
+Organisation.belongsTo(World, { as: 'world', foreignKey: 'world_id' });
+Organisation.belongsTo(OrganisationType, { as: 'type', foreignKey: 'type_id' });
+Organisation.belongsTo(User, { as: 'creator', foreignKey: 'created_by' });
+Organisation.hasMany(OrganisationVisibility, { as: 'visibility', foreignKey: 'organisation_id' });
+OrganisationVisibility.belongsTo(Organisation, { as: 'organisation', foreignKey: 'organisation_id' });
+OrganisationVisibility.belongsTo(Campaign, { as: 'campaign', foreignKey: 'campaign_id' });
+OrganisationVisibility.belongsTo(User, { as: 'player', foreignKey: 'player_id' });
+Organisation.belongsToMany(Location, {
+  through: OrganisationLocation,
+  as: 'locations',
+  foreignKey: 'organisation_id',
+  otherKey: 'location_id'
+});
+Location.belongsToMany(Organisation, {
+  through: OrganisationLocation,
+  as: 'organisations',
+  foreignKey: 'location_id',
+  otherKey: 'organisation_id'
+});
+OrganisationRelationship.belongsTo(Organisation, { as: 'organisation', foreignKey: 'organisation_id' });
+OrganisationRelationship.belongsTo(Organisation, { as: 'relatedOrganisation', foreignKey: 'related_organisation_id' });
+Organisation.hasMany(OrganisationRelationship, { as: 'relationships', foreignKey: 'organisation_id' });
+
+Race.hasMany(Npc, { as: 'npcs', foreignKey: 'race_id' });
+Npc.belongsTo(Race, { as: 'race', foreignKey: 'race_id' });
+Npc.belongsTo(World, { as: 'world', foreignKey: 'world_id' });
+Npc.belongsTo(NpcType, { as: 'type', foreignKey: 'type_id' });
+Npc.belongsTo(User, { as: 'creator', foreignKey: 'created_by' });
+Npc.hasMany(NpcVisibility, { as: 'visibility', foreignKey: 'npc_id' });
+NpcVisibility.belongsTo(Npc, { as: 'npc', foreignKey: 'npc_id' });
+NpcVisibility.belongsTo(Campaign, { as: 'campaign', foreignKey: 'campaign_id' });
+NpcVisibility.belongsTo(User, { as: 'player', foreignKey: 'player_id' });
+Npc.hasMany(NpcNote, { as: 'notes', foreignKey: 'npc_id' });
+NpcNote.belongsTo(Npc, { as: 'npc', foreignKey: 'npc_id' });
+NpcNote.belongsTo(User, { as: 'author', foreignKey: 'author_id' });
+Npc.hasMany(NpcRelationship, { as: 'relationships', foreignKey: 'npc_id' });
+NpcRelationship.belongsTo(Npc, { as: 'npc', foreignKey: 'npc_id' });
+NpcRelationship.belongsTo(Npc, { as: 'relatedNpc', foreignKey: 'related_npc_id' });
+
 export {
   sequelize,
   User,
@@ -96,5 +159,19 @@ export {
   CampaignRole,
   UserCampaignRole,
   Character,
-  CharacterCampaign
+  CharacterCampaign,
+  Race,
+  LocationType,
+  Location,
+  LocationVisibility,
+  OrganisationType,
+  Organisation,
+  OrganisationVisibility,
+  OrganisationLocation,
+  OrganisationRelationship,
+  NpcType,
+  Npc,
+  NpcVisibility,
+  NpcNote,
+  NpcRelationship
 };

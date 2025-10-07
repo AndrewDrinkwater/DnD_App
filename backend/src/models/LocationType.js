@@ -1,0 +1,16 @@
+import { DataTypes, Model } from 'sequelize';
+import { sequelize } from '../config/db.js';
+
+export default class LocationType extends Model {}
+
+LocationType.init({
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  name: { type: DataTypes.STRING, allowNull: false },
+  description: DataTypes.TEXT,
+  created_at: DataTypes.DATE
+}, {
+  sequelize,
+  modelName: 'LocationType',
+  tableName: 'location_types',
+  timestamps: false
+});
