@@ -278,7 +278,7 @@ const formatRelativeTime = (value) => {
 }
 
 function Badge({ variant = 'neutral', children, className = '', ...props }) {
-  const classes = classNames('badge', `badge-${variant}`, className)
+  const classes = classNames('ui-badge', `ui-badge--${variant}`, className)
   return (
     <span className={classes} {...props}>
       {children}
@@ -288,13 +288,14 @@ function Badge({ variant = 'neutral', children, className = '', ...props }) {
 
 function Button({
   variant = 'primary',
-  tone = 'default',
+  size = 'md',
   className = '',
   type = 'button',
   children,
   ...props
 }) {
-  const classes = classNames('btn', `btn-${variant}`, tone === 'danger' && 'btn-danger', className)
+  const resolvedVariant = variant === 'ghost' ? 'secondary' : variant
+  const classes = classNames('ui-button', `ui-button--${resolvedVariant}`, `ui-button--${size}`, className)
   return (
     <button type={type} className={classes} {...props}>
       {children}
@@ -302,8 +303,8 @@ function Button({
   )
 }
 
-function IconButton({ label, children, className = '', ...props }) {
-  const classes = classNames('btn', 'btn-icon', className)
+function IconButton({ label, variant = 'icon', className = '', children, ...props }) {
+  const classes = classNames('ui-button', `ui-button--${variant}`, 'ui-button--icon', className)
   return (
     <button type="button" className={classes} aria-label={label} {...props}>
       {children}
@@ -311,11 +312,28 @@ function IconButton({ label, children, className = '', ...props }) {
   )
 }
 
-function Card({ as: Component = 'div', className = '', children, ...props }) {
+function Card({ as: Component = 'div', variant = 'default', className = '', children, ...props }) {
+  const classes = classNames('ui-card', `ui-card--${variant}`, className)
   return (
-    <Component className={classNames('surface-card', className)} {...props}>
+    <Component className={classes} {...props}>
       {children}
     </Component>
+  )
+}
+
+function EmptyState({ icon, title, description, action, children, className = '' }) {
+  return (
+    <div className={classNames('ui-empty-state', className)}>
+      {icon && (
+        <div className="ui-empty-state__icon" aria-hidden="true">
+          {icon}
+        </div>
+      )}
+      {title && <h3>{title}</h3>}
+      {description && <p>{description}</p>}
+      {action}
+      {children}
+    </div>
   )
 }
 
@@ -1014,6 +1032,7 @@ function App() {
         accessibleCampaigns={accessibleCampaigns}
         onSaveCampaign={handleSaveCampaign}
         onDeleteCampaign={handleDeleteCampaign}
+        onSaveCharacter={handleSaveCharacter}
         currentUserId={authenticatedUserId}
         roles={roles}
         users={users}
@@ -1313,6 +1332,15 @@ function WorldPage({ worlds, onSaveWorld, onDeleteWorld }) {
   const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
   const [form, setForm] = useState({ name: '', tagline: '', description: '' })
   const [confirmState, setConfirmState] = useState({ open: false, record: null })
+  const [characterModal, setCharacterModal] = useState({
+    open: false,
+    ownerId: '',
+    campaignId: '',
+    name: '',
+    className: '',
+    level: 1,
+    ancestry: ''
+  })
 
   const sortedWorlds = useMemo(() => {
     return [...worlds].sort((a, b) => {
@@ -1500,6 +1528,7 @@ function CampaignsPage({
   accessibleCampaigns,
   onSaveCampaign,
   onDeleteCampaign,
+  onSaveCharacter,
   currentUserId,
   roles,
   users,
@@ -1794,6 +1823,7 @@ function CampaignsPage({
     if (typeof onRouteChange === 'function') {
       onRouteChange(record.id)
     }
+    resetCharacterModal()
   }
 
   const closeRecord = () => {
@@ -1801,6 +1831,7 @@ function CampaignsPage({
       onRouteChange(null)
     }
     setRecordDrawer({ open: false, recordId: null, editing: false })
+    resetCharacterModal()
   }
 
   const beginEditRecord = () => setRecordDrawer((prev) => ({ ...prev, editing: true }))
@@ -1876,6 +1907,58 @@ function CampaignsPage({
     }))
   }
 
+  const resetCharacterModal = () =>
+    setCharacterModal({
+      open: false,
+      ownerId: '',
+      campaignId: '',
+      name: '',
+      className: '',
+      level: 1,
+      ancestry: ''
+    })
+
+  const openCharacterModal = (campaignId, ownerId = '') => {
+    setCharacterModal({
+      open: true,
+      ownerId: ownerId || '',
+      campaignId,
+      name: '',
+      className: '',
+      level: 1,
+      ancestry: ''
+    })
+  }
+
+  const closeCharacterModal = () => {
+    resetCharacterModal()
+  }
+
+  const handleCharacterFieldChange = (key, value) => {
+    setCharacterModal((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleSubmitCharacterModal = (event) => {
+    event.preventDefault()
+    if (!characterModal.campaignId) return
+
+    const payload = {
+      name: characterModal.name.trim(),
+      className: characterModal.className.trim(),
+      level: Number(characterModal.level) || 1,
+      ancestry: characterModal.ancestry.trim(),
+      campaignId: characterModal.campaignId,
+      ownerId: characterModal.ownerId || currentUserId
+    }
+
+    if (!payload.name || !payload.className) {
+      return
+    }
+
+    onSaveCharacter?.(payload, 'create')
+    resetCharacterModal()
+  }
+
   const closeConfirm = () => setConfirmState({ open: false, record: null })
 
   const requestDelete = (record) => {
@@ -1906,22 +1989,16 @@ function CampaignsPage({
     recordDrawer.editing || !currentRecord ? (
       recordDrawerTitle
     ) : (
-      <div className="campaign-detail-heading">
-        <div className="campaign-detail-heading-top">
-          <h3>{currentRecord.name}</h3>
+      <div className="campaign-panel__heading">
+        <div className="campaign-panel__heading-main">
+          <span className="campaign-panel__heading-title">{currentRecord.name}</span>
           <Badge variant={statusVariantFromStatus(currentRecord.status)}>
             {describeStatus(currentRecord.status)}
           </Badge>
         </div>
-        <div className="campaign-detail-heading-meta">
-          <div>
-            <span className="detail-label">World</span>
-            <span className="detail-value">{getWorldName(currentRecord.worldId)}</span>
-          </div>
-          <div>
-            <span className="detail-label">Updated</span>
-            <span className="detail-value">{formatRelativeTime(currentRecord.updatedAt)}</span>
-          </div>
+        <div className="campaign-panel__heading-meta" aria-live="polite">
+          <span className="campaign-panel__heading-meta-item">{getWorldName(currentRecord.worldId)}</span>
+          <span className="campaign-panel__heading-meta-item">Updated {formatRelativeTime(currentRecord.updatedAt)}</span>
         </div>
       </div>
     )
@@ -1937,6 +2014,16 @@ function CampaignsPage({
     }
     return splitAssignments(currentRecord)
   }, [currentRecord, splitAssignments])
+
+  const modalCampaignName = useMemo(() => {
+    if (characterModal.campaignId) {
+      const matched = accessibleCampaigns.find((campaign) => campaign.id === characterModal.campaignId)
+      if (matched) {
+        return matched.name
+      }
+    }
+    return currentRecord?.name || ''
+  }, [characterModal.campaignId, accessibleCampaigns, currentRecord])
 
   const renderAssignmentEditor = (assignments, onUpdate, onRemove, prefix) => {
     if (assignments.length === 0) {
@@ -1998,34 +2085,40 @@ function CampaignsPage({
 
   const createFormId = 'campaign-create-form'
   const recordFormId = 'campaign-edit-form'
+  const characterFormId = 'campaign-character-form'
 
   return (
     <section className="campaigns-page">
-      <header className="section-header">
+      <header className="campaigns-page__header">
         <div>
-          <h2>Campaigns</h2>
-          <p className="section-subtitle">
+          <h2 className="page-title">Campaigns</h2>
+          <p className="page-subtitle">
             View the adventures you belong to and keep your party assignments current.
           </p>
         </div>
         {canCreateCampaigns && (
-          <Button onClick={openCreate}>New campaign</Button>
+          <Button variant="primary" onClick={openCreate} aria-label="Create a new campaign">
+            New campaign
+          </Button>
         )}
       </header>
 
       {sortedCampaigns.length === 0 ? (
-        <Card className="campaign-empty">
-          <div className="campaign-empty-illustration" aria-hidden="true">
-            📜
-          </div>
-          <h3>You’re not part of any campaigns yet.</h3>
-          <p>Spin up your first adventure to invite your party and set the scene.</p>
-          {canCreateCampaigns && (
-            <Button onClick={openCreate}>+ Create campaign</Button>
-          )}
-        </Card>
+        <EmptyState
+          icon="🧙"
+          title="You’re not part of any campaigns yet."
+          description="Create a campaign to gather your party and begin adventuring."
+          action={
+            canCreateCampaigns ? (
+              <Button variant="primary" onClick={openCreate} aria-label="Create your first campaign">
+                + Create campaign
+              </Button>
+            ) : null
+          }
+          className="campaigns-page__empty"
+        />
       ) : (
-        <div className="campaign-grid-modern">
+        <div className="campaigns-grid">
           {sortedCampaigns.map((campaign) => {
             const isCurrent = currentCampaignId === campaign.id
             const { dungeonMasters: cardDMs, partyMembers: cardParty } = splitAssignments(campaign)
@@ -2034,61 +2127,73 @@ function CampaignsPage({
             const partyPreview = partyNames.slice(0, 3)
             const remaining = Math.max(0, partyNames.length - partyPreview.length)
             return (
-              <Card key={campaign.id} className={classNames('campaign-card-modern', isCurrent && 'campaign-card-modern-active')}>
-                <div className="campaign-card-modern__header">
-                  <div>
-                    <h3>{campaign.name}</h3>
-                    <div className="campaign-card-modern__status">
-                      <span className="detail-label">Status</span>
-                      <Badge variant={statusVariantFromStatus(campaign.status)}>
-                        {describeStatus(campaign.status)}
-                      </Badge>
-                    </div>
+              <Card
+                key={campaign.id}
+                variant="elevated"
+                className={classNames('campaign-card', isCurrent && 'campaign-card--active')}
+              >
+                <div className="campaign-card__header">
+                  <div className="campaign-card__title-group">
+                    <h3 className="campaign-card__title">{campaign.name}</h3>
+                    <Badge variant={statusVariantFromStatus(campaign.status)}>
+                      {describeStatus(campaign.status)}
+                    </Badge>
                   </div>
-                  <span className="campaign-card-modern__updated">Last updated {formatCardTimestamp(campaign.updatedAt)}</span>
+                  <span className="campaign-card__updated">Updated {formatCardTimestamp(campaign.updatedAt)}</span>
                 </div>
 
-                {campaign.summary && <p className="campaign-card-modern__summary">{campaign.summary}</p>}
+                {campaign.summary && <p className="campaign-card__summary">{campaign.summary}</p>}
 
-                <div className="campaign-card-modern__meta">
-                  <div>
-                    <span className="detail-label">World</span>
-                    <span className="detail-value">{getWorldName(campaign.worldId)}</span>
+                <div className="campaign-card__meta">
+                  <div className="campaign-card__meta-item" aria-label="World">
+                    <span className="campaign-card__meta-label">World</span>
+                    <span className="campaign-card__meta-value">{getWorldName(campaign.worldId)}</span>
                   </div>
-                  <div>
-                    <span className="detail-label">DM</span>
-                    <span className="detail-value" aria-label="Dungeon Master">
+                  <div className="campaign-card__meta-item" aria-label="Dungeon Master">
+                    <span className="campaign-card__meta-label">Dungeon Master</span>
+                    <span className="campaign-card__meta-value">
                       {dmNames.length > 0 ? dmNames.join(', ') : 'Unassigned'}
                     </span>
                   </div>
-                  <div>
-                    <span className="detail-label">Party</span>
-                    <div className="campaign-card-modern__party" aria-label="Party preview">
+                  <div className="campaign-card__meta-item" aria-label="Party">
+                    <span className="campaign-card__meta-label">Party</span>
+                    <div className="campaign-card__party" aria-label="Party preview">
                       {partyPreview.length > 0 ? (
                         <>
                           {partyPreview.map((name) => (
-                            <span key={name} className="party-chip">
+                            <span key={name} className="campaign-card__party-chip">
                               {name}
                             </span>
                           ))}
                           {remaining > 0 && (
-                            <span className="party-chip party-chip--more">+{remaining}</span>
+                            <span className="campaign-card__party-chip campaign-card__party-chip--more">
+                              +{remaining}
+                            </span>
                           )}
                         </>
                       ) : (
-                        <span className="detail-value muted">No players yet</span>
+                        <span className="campaign-card__meta-value muted">No players yet</span>
                       )}
                     </div>
                   </div>
                 </div>
 
-                <div className="campaign-card-modern__actions">
-                  <Button onClick={() => openRecord(campaign)}>View details</Button>
+                <div className="campaign-card__actions">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => openRecord(campaign)}
+                    aria-label={`View details for ${campaign.name}`}
+                  >
+                    View details
+                  </Button>
                   <Button
                     variant="secondary"
+                    size="sm"
                     onClick={() => onSelectCampaign?.(campaign.id)}
                     disabled={isCurrent}
                     aria-pressed={isCurrent}
+                    aria-label={isCurrent ? `${campaign.name} is the active campaign` : `Set ${campaign.name} as active`}
                   >
                     {isCurrent ? 'Active campaign' : 'Set active'}
                   </Button>
@@ -2194,7 +2299,7 @@ function CampaignsPage({
               <Button variant="secondary" onClick={cancelEditRecord}>
                 Cancel
               </Button>
-              <Button type="submit" form={recordFormId}>
+              <Button variant="primary" type="submit" form={recordFormId}>
                 Save
               </Button>
             </>
@@ -2202,7 +2307,7 @@ function CampaignsPage({
             <>
               {canManageCurrent && currentRecord && (
                 <>
-                  <Button variant="ghost" tone="danger" onClick={() => requestDelete(currentRecord)}>
+                  <Button variant="danger" onClick={() => requestDelete(currentRecord)}>
                     Delete
                   </Button>
                   <Button variant="secondary" onClick={beginEditRecord}>
@@ -2287,146 +2392,256 @@ function CampaignsPage({
             </div>
           </form>
         ) : currentRecord ? (
-          <div className="campaign-detail">
+          <div className="campaign-panel">
             {currentRecord.summary && (
-              <p className="campaign-detail__summary">{currentRecord.summary}</p>
+              <p className="campaign-panel__summary">{currentRecord.summary}</p>
             )}
 
-            <div className="campaign-detail__layout">
-              <div className="campaign-detail__column">
-                <Card className="detail-card" aria-label="Dungeon Master panel">
-                  <span className="detail-label">Dungeon Master</span>
-                  <div className="detail-value" aria-label="Dungeon Master">
-                    {dungeonMasters.length > 0
-                      ? dungeonMasters.map((assignment) => getUserName(assignment.userId)).join(', ')
-                      : 'Unassigned'}
+            <div className="campaign-panel__overview">
+              <Card variant="elevated" className="campaign-panel__card" aria-label="Dungeon Master overview">
+                <div className="campaign-overview">
+                  <div className="campaign-overview__lead">
+                    <span className="campaign-overview__icon" aria-hidden="true">👑</span>
+                    <div>
+                      <span className="campaign-overview__label">Dungeon Master</span>
+                      <p className="campaign-overview__value">
+                        {dungeonMasters.length > 0
+                          ? dungeonMasters.map((assignment) => getUserName(assignment.userId)).join(', ')
+                          : 'Unassigned'}
+                      </p>
+                    </div>
                   </div>
-                </Card>
+                  <div className="campaign-overview__stats">
+                    <div>
+                      <span className="campaign-overview__stat-label">Players</span>
+                      <span className="campaign-overview__stat-value">{partyMembers.length}</span>
+                    </div>
+                    <div>
+                      <span className="campaign-overview__stat-label">Characters</span>
+                      <span className="campaign-overview__stat-value">
+                        {(campaignCharacterLookup.get(currentRecord.id) || []).length}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
 
-                <Card className="detail-card" aria-label="Party overview">
-                  <span className="detail-label">Party</span>
-                  {partyMembers.length > 0 ? (
-                    <ul className="party-overview" aria-label="Party list">
-                      {partyMembers.map((assignment) => (
-                        <li key={assignment.id} className="party-overview__item">
-                          <span className="party-overview__icon" aria-hidden="true">
-                            👤
-                          </span>
-                          <div>
-                            <span className="detail-value">{getUserName(assignment.userId)}</span>
-                            <span className="detail-label">{getRoleName(assignment.roleId)}</span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="helper-text">No party members linked yet.</p>
-                  )}
-                </Card>
+              <Card variant="outlined" className="campaign-panel__card campaign-panel__card--world" aria-label="World">
+                <div className="campaign-overview__world">
+                  <span className="campaign-overview__label">World</span>
+                  <span className="campaign-overview__value">{getWorldName(currentRecord.worldId)}</span>
+                  <span className="campaign-overview__timestamp">Last updated {formatRelativeTime(currentRecord.updatedAt)}</span>
+                </div>
+              </Card>
+            </div>
+
+            <section className="campaign-panel__party" aria-label="Party">
+              <div className="campaign-panel__party-header">
+                <h4 className="section-title">Party</h4>
               </div>
 
-              <div className="campaign-detail__column campaign-detail__column--players">
-                <div className="player-section-header">
-                  <h4>Players</h4>
-                  <Button
-                    onClick={() => {
-                      onSelectCampaign?.(currentRecord.id)
-                    }}
-                    aria-label={`Add character to ${currentRecord.name}`}
-                  >
-                    + Add character
-                  </Button>
-                </div>
-
-                {partyMembers.length > 0 ? (
-                  <div className="player-card-stack">
-                    {partyMembers.map((assignment, index) => {
-                      const playerName = getUserName(assignment.userId)
-                      const roleName = getRoleName(assignment.roleId)
-                      const charactersForPlayer = getCharactersForAssignment(currentRecord.id, assignment.userId)
-                      const isDungeonMaster = roleName === 'Dungeon Master'
-                      return (
-                        <details
-                          key={assignment.id}
-                          className={classNames(
-                            'player-card',
-                            index % 2 === 1 && 'player-card--alternate',
-                            isDungeonMaster && 'player-card--dm'
-                          )}
-                          open
-                        >
-                          <summary>
-                            <div className="player-card-header">
-                              <div className="player-card-title" aria-label={isDungeonMaster ? 'Dungeon Master' : 'Player'}>
-                                <span className="player-icon" aria-hidden="true">
-                                  {isDungeonMaster ? '👑' : '👤'}
-                                </span>
-                                <div>
-                                  <span className="player-name">{playerName}</span>
-                                  <span className="player-role">{roleName || 'Player'}</span>
-                                </div>
-                              </div>
-                              <div className="player-card-actions">
-                                {canManageCurrent && (
-                                  <IconButton
-                                    label={`Edit ${playerName}`}
-                                    onClick={(event) => {
-                                      event.preventDefault()
-                                      event.stopPropagation()
-                                      beginEditRecord()
-                                    }}
+              {partyMembers.length > 0 ? (
+                <div className="campaign-player-list">
+                  {partyMembers.map((assignment, index) => {
+                    const playerName = getUserName(assignment.userId)
+                    const roleName = getRoleName(assignment.roleId)
+                    const charactersForPlayer = getCharactersForAssignment(currentRecord.id, assignment.userId)
+                    const isDungeonMaster = roleName === 'Dungeon Master'
+                    return (
+                      <details
+                        key={assignment.id}
+                        className={classNames(
+                          'campaign-player',
+                          index % 2 === 1 && 'campaign-player--alternate',
+                          isDungeonMaster && 'campaign-player--dm'
+                        )}
+                        open
+                      >
+                        <summary className="campaign-player__summary">
+                          <div
+                            className="campaign-player__identity"
+                            aria-label={isDungeonMaster ? 'Dungeon Master' : 'Player'}
+                          >
+                            <span className="campaign-player__icon" aria-hidden="true">
+                              {isDungeonMaster ? '👑' : '🧝'}
+                            </span>
+                            <div className="campaign-player__meta">
+                              <span className="campaign-player__name">{playerName}</span>
+                              <Badge
+                                variant={isDungeonMaster ? 'planning' : 'neutral'}
+                                className="campaign-player__badge"
+                              >
+                                {roleName || 'Player'}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="campaign-player__actions">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={(event) => {
+                                event.preventDefault()
+                                event.stopPropagation()
+                                openCharacterModal(currentRecord.id, assignment.userId)
+                              }}
+                              aria-label={`Add character for ${playerName}`}
+                            >
+                              + Add character
+                            </Button>
+                            {canManageCurrent && (
+                              <IconButton
+                                label={`Edit ${playerName} assignments`}
+                                onClick={(event) => {
+                                  event.preventDefault()
+                                  event.stopPropagation()
+                                  beginEditRecord()
+                                }}
+                                className="campaign-player__icon-button"
+                              >
+                                ✏️
+                              </IconButton>
+                            )}
+                          </div>
+                        </summary>
+                        <div className="campaign-player__body">
+                          {charactersForPlayer.length > 0 ? (
+                            <ul className="campaign-player__characters">
+                              {charactersForPlayer.map((character) => (
+                                <li key={character.id} className="campaign-player__character">
+                                  <div>
+                                    <span className="campaign-player__character-name">{character.name}</span>
+                                    <span className="campaign-player__character-meta">
+                                      {character.className} · Level {character.level}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="campaign-player__character-link"
+                                    onClick={() => onSelectCampaign?.(character.campaignId)}
+                                    aria-label={`View ${character.name}`}
                                   >
-                                    ✏️
-                                  </IconButton>
-                                )}
-                                <IconButton
-                                  label={`View ${playerName} profile`}
+                                    View
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <EmptyState
+                              icon="🧙"
+                              title="No characters yet"
+                              description="Add a character to this player to begin."
+                              action={
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
                                   onClick={(event) => {
                                     event.preventDefault()
                                     event.stopPropagation()
-                                    onSelectCampaign?.(currentRecord.id)
+                                    openCharacterModal(currentRecord.id, assignment.userId)
                                   }}
                                 >
-                                  🔍
-                                </IconButton>
-                              </div>
-                            </div>
-                          </summary>
-                          <div className="player-card-body">
-                            <span className="detail-label">Characters</span>
-                            {charactersForPlayer.length > 0 ? (
-                              <ul className="character-stack">
-                                {charactersForPlayer.map((character) => (
-                                  <li key={character.id} className="character-card" aria-label="Character">
-                                    <span className="character-name">{character.name}</span>
-                                    <span className="character-meta">
-                                      Level {character.level} · {character.className}
-                                    </span>
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <div className="character-empty" aria-label="Empty character slot">
-                                No character selected – add one
-                              </div>
-                            )}
-                          </div>
-                        </details>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <Card className="detail-card">
-                    <p className="helper-text">Invite players to start building their characters.</p>
-                  </Card>
-                )}
-              </div>
+                                  Add character
+                                </Button>
+                              }
+                              className="campaign-player__empty"
+                            />
+                          )}
+                        </div>
+                      </details>
+                    )
+                  })}
+                </div>
+              ) : (
+                <EmptyState
+                  icon="🧝"
+                  title="No party members yet"
+                  description="Invite players to this campaign to see their characters here."
+                  className="campaign-panel__empty"
+                />
+              )}
+            </section>
+
+            <div className="campaign-panel__floating">
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => openCharacterModal(currentRecord.id, partyMembers[0]?.userId || '')}
+                aria-label={`Add character to ${currentRecord.name}`}
+              >
+                + Add character
+              </Button>
             </div>
           </div>
         ) : (
           <p className="helper-text">This campaign is no longer available.</p>
         )}
       </RecordDrawer>
+
+      <FormModal
+        open={characterModal.open}
+        title="Add character"
+        onClose={closeCharacterModal}
+        actions={
+          <>
+            <Button variant="secondary" onClick={closeCharacterModal}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" form={characterFormId}>
+              Save character
+            </Button>
+          </>
+        }
+      >
+        <form id={characterFormId} className="modal-form" onSubmit={handleSubmitCharacterModal}>
+          <div className="modal-context">
+            <span className="modal-context__label">Campaign</span>
+            <span className="modal-context__value">{modalCampaignName || 'Unassigned'}</span>
+          </div>
+          {characterModal.ownerId && (
+            <div className="modal-context">
+              <span className="modal-context__label">Player</span>
+              <span className="modal-context__value">{getUserName(characterModal.ownerId)}</span>
+            </div>
+          )}
+
+          <label>
+            <span>Name</span>
+            <input
+              required
+              type="text"
+              value={characterModal.name}
+              onChange={(event) => handleCharacterFieldChange('name', event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Class</span>
+            <input
+              required
+              type="text"
+              value={characterModal.className}
+              onChange={(event) => handleCharacterFieldChange('className', event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Level</span>
+            <input
+              type="number"
+              min="1"
+              max="20"
+              value={characterModal.level}
+              onChange={(event) => handleCharacterFieldChange('level', event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Ancestry</span>
+            <input
+              type="text"
+              value={characterModal.ancestry}
+              onChange={(event) => handleCharacterFieldChange('ancestry', event.target.value)}
+            />
+          </label>
+        </form>
+      </FormModal>
 
       <ConfirmDialog
         open={confirmState.open}
@@ -3837,7 +4052,110 @@ function ConfirmDialog({ open, title, description, detail, confirmLabel, onCance
   )
 }
 
-function RecordDrawer({ open, title, onClose, actions, children }) {
+function FormModal({ open, title, onClose, actions, children }) {
+  const dialogRef = useRef(null)
+  const previouslyFocusedElement = useRef(null)
+  const headingId = useMemo(() => newId('modal-title'), [])
+
+  useEffect(() => {
+    if (!open) return undefined
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open, onClose])
+
+  useEffect(() => {
+    if (!open) return undefined
+
+    previouslyFocusedElement.current = document.activeElement
+
+    const node = dialogRef.current
+    if (!node) return undefined
+
+    const focusableSelectors =
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+
+    const getFocusable = () =>
+      Array.from(node.querySelectorAll(focusableSelectors)).filter(
+        (element) => !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true'
+      )
+
+    const focusFirst = () => {
+      const [first] = getFocusable()
+      if (first) {
+        first.focus()
+      } else {
+        node.focus({ preventScroll: true })
+      }
+    }
+
+    focusFirst()
+
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Tab') return
+      const focusable = getFocusable()
+      if (focusable.length === 0) {
+        event.preventDefault()
+        return
+      }
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+
+      if (event.shiftKey) {
+        if (document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        }
+      } else if (document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    node.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      node.removeEventListener('keydown', handleKeyDown)
+      if (previouslyFocusedElement.current && typeof previouslyFocusedElement.current.focus === 'function') {
+        previouslyFocusedElement.current.focus()
+      }
+    }
+  }, [open])
+
+  if (!open) return null
+
+  return (
+    <div className="modal-layer">
+      <div className="modal-overlay" onClick={onClose} />
+      <div
+        ref={dialogRef}
+        className="form-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        tabIndex={-1}
+      >
+        <header className="form-modal__header">
+          <h3 id={headingId}>{title}</h3>
+          <IconButton label="Close" onClick={onClose} className="form-modal__close">
+            ×
+          </IconButton>
+        </header>
+        <div className="form-modal__body">{children}</div>
+        <footer className="form-modal__footer">{actions}</footer>
+      </div>
+    </div>
+  )
+}
+
+function RecordDrawer({ open, title, subtitle, onClose, actions, children }) {
   const drawerRef = useRef(null)
   const previouslyFocusedElement = useRef(null)
 
@@ -3930,7 +4248,12 @@ function RecordDrawer({ open, title, onClose, actions, children }) {
       >
         <header className="drawer-header">
           <div className="drawer-title">
-            <h3 id={headingId}>{title}</h3>
+            {typeof title === 'string' ? (
+              <h3 id={headingId}>{title}</h3>
+            ) : (
+              <div id={headingId}>{title}</div>
+            )}
+            {subtitle && <p className="drawer-subtitle">{subtitle}</p>}
           </div>
           <div className="drawer-header-actions">
             {actions ?? <Button variant="secondary" onClick={onClose}>Close</Button>}
