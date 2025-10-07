@@ -1332,15 +1332,6 @@ function WorldPage({ worlds, onSaveWorld, onDeleteWorld }) {
   const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
   const [form, setForm] = useState({ name: '', tagline: '', description: '' })
   const [confirmState, setConfirmState] = useState({ open: false, record: null })
-  const [characterModal, setCharacterModal] = useState({
-    open: false,
-    ownerId: '',
-    campaignId: '',
-    name: '',
-    className: '',
-    level: 1,
-    ancestry: ''
-  })
 
   const sortedWorlds = useMemo(() => {
     return [...worlds].sort((a, b) => {
@@ -1612,6 +1603,15 @@ function CampaignsPage({
     assignments: []
   })
   const [confirmState, setConfirmState] = useState({ open: false, record: null })
+  const [characterModal, setCharacterModal] = useState({
+    open: false,
+    ownerId: '',
+    campaignId: '',
+    name: '',
+    className: '',
+    level: 1,
+    ancestry: ''
+  })
 
   useEffect(() => {
     if (!canCreateCampaigns) {
