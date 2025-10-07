@@ -674,85 +674,87 @@ function NpcDirectory({
     ? 'Pick a campaign or character from the header to reveal NPCs tied to them.'
     : 'No NPCs have been catalogued for this context yet.'
 
+  const npcColumns = useMemo(
+    () => [
+      { id: 'name', label: 'Name', accessor: (npc) => npc.name },
+      { id: 'role', label: 'Role', accessor: (npc) => npc.role || '—' },
+      { id: 'demeanor', label: 'Disposition', accessor: (npc) => npc.demeanor || '—', defaultVisible: false },
+      {
+        id: 'world',
+        label: 'World',
+        accessor: (npc) => worldLookup.get(npc.worldId) || 'Unassigned world',
+        filterValue: (npc) => worldLookup.get(npc.worldId) || ''
+      },
+      {
+        id: 'visibility',
+        label: 'Visibility',
+        accessor: (npc) => describeRecordAudience(npc, { campaignLookup, characterLookup })
+      },
+      {
+        id: 'campaigns',
+        label: 'Campaigns',
+        accessor: (npc) =>
+          (Array.isArray(npc.campaignIds)
+            ? npc.campaignIds
+                .map((id) => campaignLookup.get(id) || id)
+                .filter(Boolean)
+                .join(', ')
+            : '') || '—',
+        defaultVisible: false
+      },
+      {
+        id: 'tags',
+        label: 'Tags',
+        accessor: (npc) => (Array.isArray(npc.tags) ? npc.tags.join(', ') : '—'),
+        defaultVisible: false
+      },
+      {
+        id: 'location',
+        label: 'Current lead',
+        accessor: (npc) => npc.location || '—'
+      },
+      {
+        id: 'lastInteractedAt',
+        label: 'Last seen',
+        accessor: (npc) => formatRelativeTime(npc.lastInteractedAt),
+        filterValue: (npc) => npc.lastInteractedAt || ''
+      }
+    ],
+    [campaignLookup, characterLookup, worldLookup]
+  )
+
+  const contextLabel = showContextPrompt ? (
+    <p className="knowledge-context-label">
+      Select a campaign{characterCount > 0 ? ' or character' : ''} in the header to focus these results.
+    </p>
+  ) : (activeCampaign || activeCharacter) ? (
+    <p className="knowledge-context-label">
+      Viewing through <strong>{activeCharacter ? activeCharacter.name : activeCampaign?.name}</strong>.
+    </p>
+  ) : null
+
   return (
-    <section className="knowledge-page">
-      <header className="section-header knowledge-section-header">
-        <div>
-          <h2>NPC compendium</h2>
-          <p className="section-subtitle">{contextDescription}</p>
-        </div>
-        <Badge variant="neutral" className="knowledge-count-badge">
-          {records.length} / {totalCount} visible
-        </Badge>
-      </header>
-
-      {showContextPrompt && (
-        <p className="knowledge-context-label">
-          Select a campaign{characterCount > 0 ? ' or character' : ''} in the header to focus these results.
-        </p>
+    <StandardListView
+      entityName="NPC"
+      heading="NPC compendium"
+      description={contextDescription}
+      columns={npcColumns}
+      records={records}
+      totalCount={totalCount}
+      emptyTitle="No NPCs visible"
+      emptyMessage={emptyDescription}
+      filterEmptyMessage="No NPCs match the current filters."
+      enableFilters
+      badge={({ filteredCount }) => (
+        <span className="list-chip">{filteredCount} / {totalCount} visible</span>
       )}
-
-      {!showContextPrompt && (activeCampaign || activeCharacter) && (
-        <p className="knowledge-context-label">
-          Viewing through <strong>{activeCharacter ? activeCharacter.name : activeCampaign?.name}</strong>.
-        </p>
-      )}
-
-      {records.length === 0 ? (
-        <EmptyState icon="🧙" title="No NPCs visible" description={emptyDescription} />
-      ) : (
-        <div className="knowledge-grid">
-          {records.map((npc) => (
-            <article key={npc.id} className="ui-card ui-card--default knowledge-card">
-              <header className="knowledge-card-header">
-                <div>
-                  <h3>{npc.name}</h3>
-                  {npc.role && <p className="knowledge-card-subtitle">{npc.role}</p>}
-                </div>
-                {npc.tags?.length > 0 && (
-                  <div className="knowledge-card-metadata">
-                    {npc.tags.map((tag) => (
-                      <Badge key={tag} variant="neutral" className="knowledge-tag">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </header>
-              {npc.description && <p className="knowledge-card-description">{npc.description}</p>}
-              <dl className="knowledge-meta">
-                <div>
-                  <dt>World</dt>
-                  <dd>{worldLookup.get(npc.worldId) || 'Unassigned world'}</dd>
-                </div>
-                <div>
-                  <dt>Disposition</dt>
-                  <dd>{npc.demeanor || 'Unknown'}</dd>
-                </div>
-                <div>
-                  <dt>Visibility</dt>
-                  <dd>{describeRecordAudience(npc, { campaignLookup, characterLookup })}</dd>
-                </div>
-                <div>
-                  <dt>Last seen</dt>
-                  <dd>{formatRelativeTime(npc.lastInteractedAt)}</dd>
-                </div>
-              </dl>
-              {npc.location && (
-                <div className="knowledge-spotlight">
-                  <h4>Current lead</h4>
-                  <p>{npc.location}</p>
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
-
-      {!isWorldBuilder && hasDmVision && (
-        <p className="knowledge-dm-note">You are seeing entries flagged for Dungeon Masters in this context.</p>
-      )}
-    </section>
+      information={contextLabel}
+      note={
+        !isWorldBuilder && hasDmVision ? (
+          <p className="knowledge-dm-note">You are seeing entries flagged for Dungeon Masters in this context.</p>
+        ) : null
+      }
+    />
   )
 }
 
@@ -774,81 +776,93 @@ function LocationsAtlas({
     ? 'Set a campaign or character context to reveal scouting intel.'
     : 'No locations have been recorded for this context yet.'
 
+  const locationColumns = useMemo(
+    () => [
+      { id: 'name', label: 'Location', accessor: (location) => location.name },
+      { id: 'type', label: 'Type', accessor: (location) => location.type || '—' },
+      {
+        id: 'world',
+        label: 'World',
+        accessor: (location) => worldLookup.get(location.worldId) || 'Unassigned world',
+        filterValue: (location) => worldLookup.get(location.worldId) || ''
+      },
+      {
+        id: 'visibility',
+        label: 'Visibility',
+        accessor: (location) => describeRecordAudience(location, { campaignLookup, characterLookup })
+      },
+      {
+        id: 'campaigns',
+        label: 'Campaigns',
+        accessor: (location) =>
+          (Array.isArray(location.campaignIds)
+            ? location.campaignIds
+                .map((id) => campaignLookup.get(id) || id)
+                .filter(Boolean)
+                .join(', ')
+            : '') || '—',
+        defaultVisible: false
+      },
+      {
+        id: 'tags',
+        label: 'Tags',
+        accessor: (location) => (Array.isArray(location.tags) ? location.tags.join(', ') : '—'),
+        defaultVisible: false
+      },
+      {
+        id: 'summary',
+        label: 'Summary',
+        accessor: (location) => location.summary || '—',
+        defaultVisible: false
+      },
+      {
+        id: 'notes',
+        label: 'Field notes',
+        accessor: (location) => location.notes || '—',
+        defaultVisible: false
+      },
+      {
+        id: 'lastScoutedAt',
+        label: 'Last scouted',
+        accessor: (location) => formatRelativeTime(location.lastScoutedAt),
+        filterValue: (location) => location.lastScoutedAt || ''
+      }
+    ],
+    [campaignLookup, characterLookup, worldLookup]
+  )
+
+  const contextLabel = showContextPrompt ? (
+    <p className="knowledge-context-label">
+      Choose a campaign{characterCount > 0 ? ' or character' : ''} to narrow the field reports.
+    </p>
+  ) : (activeCampaign || activeCharacter) ? (
+    <p className="knowledge-context-label">
+      Focused on <strong>{activeCharacter ? activeCharacter.name : activeCampaign?.name}</strong>.
+    </p>
+  ) : null
+
   return (
-    <section className="knowledge-page">
-      <header className="section-header knowledge-section-header">
-        <div>
-          <h2>Location atlas</h2>
-          <p className="section-subtitle">{contextDescription}</p>
-        </div>
-        <Badge variant="neutral" className="knowledge-count-badge">
-          {records.length} / {totalCount} visible
-        </Badge>
-      </header>
-
-      {showContextPrompt && (
-        <p className="knowledge-context-label">
-          Choose a campaign{characterCount > 0 ? ' or character' : ''} to narrow the field reports.
-        </p>
+    <StandardListView
+      entityName="Location"
+      heading="Location atlas"
+      description={contextDescription}
+      columns={locationColumns}
+      records={records}
+      totalCount={totalCount}
+      emptyTitle="No locations logged"
+      emptyMessage={emptyDescription}
+      filterEmptyMessage="No locations match the current filters."
+      enableFilters
+      badge={({ filteredCount }) => (
+        <span className="list-chip">{filteredCount} / {totalCount} visible</span>
       )}
-
-      {!showContextPrompt && (activeCampaign || activeCharacter) && (
-        <p className="knowledge-context-label">
-          Focused on <strong>{activeCharacter ? activeCharacter.name : activeCampaign?.name}</strong>.
-        </p>
-      )}
-
-      {records.length === 0 ? (
-        <EmptyState icon="🧭" title="No locations logged" description={emptyDescription} />
-      ) : (
-        <div className="knowledge-grid">
-          {records.map((location) => (
-            <article key={location.id} className="ui-card ui-card--default knowledge-card">
-              <header className="knowledge-card-header">
-                <div>
-                  <h3>{location.name}</h3>
-                  {location.type && <p className="knowledge-card-subtitle">{location.type}</p>}
-                </div>
-                {location.tags?.length > 0 && (
-                  <div className="knowledge-card-metadata">
-                    {location.tags.map((tag) => (
-                      <span key={tag} className="knowledge-chip knowledge-chip--tag">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </header>
-              {location.summary && <p className="knowledge-card-description">{location.summary}</p>}
-              <dl className="knowledge-meta">
-                <div>
-                  <dt>World</dt>
-                  <dd>{worldLookup.get(location.worldId) || 'Unassigned world'}</dd>
-                </div>
-                <div>
-                  <dt>Visibility</dt>
-                  <dd>{describeRecordAudience(location, { campaignLookup, characterLookup })}</dd>
-                </div>
-                <div>
-                  <dt>Last scouted</dt>
-                  <dd>{formatRelativeTime(location.lastScoutedAt)}</dd>
-                </div>
-              </dl>
-              {location.notes && (
-                <div className="knowledge-spotlight">
-                  <h4>Field notes</h4>
-                  <p>{location.notes}</p>
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
-
-      {!isWorldBuilder && hasDmVision && (
-        <p className="knowledge-dm-note">DM-only entries are included because of your campaign role.</p>
-      )}
-    </section>
+      information={contextLabel}
+      note={
+        !isWorldBuilder && hasDmVision ? (
+          <p className="knowledge-dm-note">DM-only entries are included because of your campaign role.</p>
+        ) : null
+      }
+    />
   )
 }
 
@@ -870,189 +884,169 @@ function OrganisationsLedger({
     ? 'Select a campaign or character to reveal the factions relevant to them.'
     : 'No organisations have been catalogued for this context yet.'
 
+  const organisationColumns = useMemo(
+    () => [
+      { id: 'name', label: 'Organisation', accessor: (organisation) => organisation.name },
+      { id: 'alignment', label: 'Alignment', accessor: (organisation) => organisation.alignment || '—' },
+      {
+        id: 'world',
+        label: 'World',
+        accessor: (organisation) => worldLookup.get(organisation.worldId) || 'Unassigned world',
+        filterValue: (organisation) => worldLookup.get(organisation.worldId) || ''
+      },
+      {
+        id: 'visibility',
+        label: 'Visibility',
+        accessor: (organisation) => describeRecordAudience(organisation, { campaignLookup, characterLookup })
+      },
+      {
+        id: 'campaigns',
+        label: 'Campaigns',
+        accessor: (organisation) =>
+          (Array.isArray(organisation.campaignIds)
+            ? organisation.campaignIds
+                .map((id) => campaignLookup.get(id) || id)
+                .filter(Boolean)
+                .join(', ')
+            : '') || '—',
+        defaultVisible: false
+      },
+      {
+        id: 'summary',
+        label: 'Summary',
+        accessor: (organisation) => organisation.summary || '—',
+        defaultVisible: false
+      },
+      {
+        id: 'goals',
+        label: 'Goals',
+        accessor: (organisation) => (Array.isArray(organisation.goals) ? organisation.goals.join(', ') : '—'),
+        defaultVisible: false
+      },
+      {
+        id: 'influence',
+        label: 'Influence',
+        accessor: (organisation) => organisation.influence || '—',
+        defaultVisible: false
+      },
+      {
+        id: 'allies',
+        label: 'Allies',
+        accessor: (organisation) => (Array.isArray(organisation.allies) ? organisation.allies.join(', ') : '—'),
+        defaultVisible: false
+      },
+      {
+        id: 'enemies',
+        label: 'Adversaries',
+        accessor: (organisation) => (Array.isArray(organisation.enemies) ? organisation.enemies.join(', ') : '—'),
+        defaultVisible: false
+      },
+      {
+        id: 'tags',
+        label: 'Tags',
+        accessor: (organisation) => (Array.isArray(organisation.tags) ? organisation.tags.join(', ') : '—'),
+        defaultVisible: false
+      },
+      {
+        id: 'lastActivityAt',
+        label: 'Last activity',
+        accessor: (organisation) => formatRelativeTime(organisation.lastActivityAt),
+        filterValue: (organisation) => organisation.lastActivityAt || ''
+      }
+    ],
+    [campaignLookup, characterLookup, worldLookup]
+  )
+
+  const contextLabel = showContextPrompt ? (
+    <p className="knowledge-context-label">
+      Focus a campaign{characterCount > 0 ? ' or character' : ''} to see faction intel tailored to them.
+    </p>
+  ) : (activeCampaign || activeCharacter) ? (
+    <p className="knowledge-context-label">
+      Focused on <strong>{activeCharacter ? activeCharacter.name : activeCampaign?.name}</strong>.
+    </p>
+  ) : null
+
   return (
-    <section className="knowledge-page">
-      <header className="section-header knowledge-section-header">
-        <div>
-          <h2>Faction ledger</h2>
-          <p className="section-subtitle">{contextDescription}</p>
-        </div>
-        <Badge variant="neutral" className="knowledge-count-badge">
-          {records.length} / {totalCount} visible
-        </Badge>
-      </header>
-
-      {showContextPrompt && (
-        <p className="knowledge-context-label">
-          Focus a campaign{characterCount > 0 ? ' or character' : ''} to see faction intel tailored to them.
-        </p>
+    <StandardListView
+      entityName="Organisation"
+      heading="Faction ledger"
+      description={contextDescription}
+      columns={organisationColumns}
+      records={records}
+      totalCount={totalCount}
+      emptyTitle="No organisations logged"
+      emptyMessage={emptyDescription}
+      filterEmptyMessage="No organisations match the current filters."
+      enableFilters
+      badge={({ filteredCount }) => (
+        <span className="list-chip">{filteredCount} / {totalCount} visible</span>
       )}
-
-      {!showContextPrompt && (activeCampaign || activeCharacter) && (
-        <p className="knowledge-context-label">
-          Focused on <strong>{activeCharacter ? activeCharacter.name : activeCampaign?.name}</strong>.
-        </p>
-      )}
-
-      {records.length === 0 ? (
-        <EmptyState icon="🛡️" title="No organisations logged" description={emptyDescription} />
-      ) : (
-        <div className="knowledge-grid">
-          {records.map((organisation) => (
-            <article key={organisation.id} className="ui-card ui-card--default knowledge-card">
-              <header className="knowledge-card-header">
-                <div>
-                  <h3>{organisation.name}</h3>
-                  {organisation.alignment && (
-                    <p className="knowledge-card-subtitle">{organisation.alignment}</p>
-                  )}
-                </div>
-                {organisation.tags?.length > 0 && (
-                  <div className="knowledge-card-metadata">
-                    {organisation.tags.map((tag) => (
-                      <span key={tag} className="knowledge-chip knowledge-chip--tag">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </header>
-              {organisation.summary && (
-                <p className="knowledge-card-description">{organisation.summary}</p>
-              )}
-              <dl className="knowledge-meta">
-                <div>
-                  <dt>World</dt>
-                  <dd>{worldLookup.get(organisation.worldId) || 'Unassigned world'}</dd>
-                </div>
-                {organisation.influence && (
-                  <div>
-                    <dt>Influence</dt>
-                    <dd>{organisation.influence}</dd>
-                  </div>
-                )}
-                <div>
-                  <dt>Visibility</dt>
-                  <dd>{describeRecordAudience(organisation, { campaignLookup, characterLookup })}</dd>
-                </div>
-                <div>
-                  <dt>Last activity</dt>
-                  <dd>{formatRelativeTime(organisation.lastActivityAt)}</dd>
-                </div>
-              </dl>
-              {organisation.goals?.length > 0 && (
-                <div className="knowledge-spotlight">
-                  <h4>Current goals</h4>
-                  <ul className="knowledge-list">
-                    {organisation.goals.map((goal) => (
-                      <li key={goal}>{goal}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {(organisation.allies?.length > 0 || organisation.enemies?.length > 0) && (
-                <div className="knowledge-relationships">
-                  {organisation.allies?.length > 0 && (
-                    <div>
-                      <h4>Allies</h4>
-                      <div className="knowledge-chip-row">
-                        {organisation.allies.map((ally) => (
-                          <span key={ally} className="knowledge-chip knowledge-chip--ally">
-                            {ally}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {organisation.enemies?.length > 0 && (
-                    <div>
-                      <h4>Adversaries</h4>
-                      <div className="knowledge-chip-row">
-                        {organisation.enemies.map((enemy) => (
-                          <span key={enemy} className="knowledge-chip knowledge-chip--enemy">
-                            {enemy}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
-
-      {!isWorldBuilder && hasDmVision && (
-        <p className="knowledge-dm-note">DM-only faction intel is included because of your permissions.</p>
-      )}
-    </section>
+      information={contextLabel}
+      note={
+        !isWorldBuilder && hasDmVision ? (
+          <p className="knowledge-dm-note">DM-only faction intel is included because of your permissions.</p>
+        ) : null
+      }
+    />
   )
 }
 
 function RaceLibrary({ records, totalCount, contextDescription, worldLookup }) {
-  return (
-    <section className="knowledge-page">
-      <header className="section-header knowledge-section-header">
-        <div>
-          <h2>Ancestry library</h2>
-          <p className="section-subtitle">{contextDescription}</p>
-        </div>
-        <Badge variant="neutral" className="knowledge-count-badge">
-          {records.length} / {totalCount} available
-        </Badge>
-      </header>
+  const raceColumns = useMemo(
+    () => [
+      { id: 'name', label: 'Ancestry', accessor: (race) => race.name },
+      { id: 'availability', label: 'Availability', accessor: (race) => race.availability || '—' },
+      {
+        id: 'world',
+        label: 'World',
+        accessor: (race) => worldLookup.get(race.worldId) || 'Unassigned world',
+        filterValue: (race) => worldLookup.get(race.worldId) || ''
+      },
+      {
+        id: 'favoredClasses',
+        label: 'Favoured classes',
+        accessor: (race) => (Array.isArray(race.favoredClasses) ? race.favoredClasses.join(', ') : '—'),
+        defaultVisible: false
+      },
+      {
+        id: 'traits',
+        label: 'Signature traits',
+        accessor: (race) => (Array.isArray(race.traits) ? race.traits.join(', ') : '—'),
+        defaultVisible: false
+      },
+      {
+        id: 'description',
+        label: 'Description',
+        accessor: (race) => race.description || '—',
+        defaultVisible: false
+      },
+      {
+        id: 'updatedAt',
+        label: 'Last updated',
+        accessor: (race) => formatRelativeTime(race.updatedAt),
+        filterValue: (race) => race.updatedAt || ''
+      }
+    ],
+    [worldLookup]
+  )
 
-      {records.length === 0 ? (
-        <EmptyState
-          icon="🧬"
-          title="No ancestries curated"
-          description="Add your first ancestry to make it available to campaign builders."
-        />
-      ) : (
-        <div className="knowledge-grid">
-          {records.map((race) => (
-            <article key={race.id} className="ui-card ui-card--default knowledge-card">
-              <header className="knowledge-card-header">
-                <div>
-                  <h3>{race.name}</h3>
-                  {race.availability && (
-                    <p className="knowledge-card-subtitle">{race.availability}</p>
-                  )}
-                </div>
-              </header>
-              {race.description && <p className="knowledge-card-description">{race.description}</p>}
-              <dl className="knowledge-meta">
-                <div>
-                  <dt>World</dt>
-                  <dd>{worldLookup.get(race.worldId) || 'Unassigned world'}</dd>
-                </div>
-                {race.favoredClasses?.length > 0 && (
-                  <div>
-                    <dt>Favoured classes</dt>
-                    <dd>{race.favoredClasses.join(', ')}</dd>
-                  </div>
-                )}
-                <div>
-                  <dt>Last updated</dt>
-                  <dd>{formatRelativeTime(race.updatedAt)}</dd>
-                </div>
-              </dl>
-              {race.traits?.length > 0 && (
-                <div className="knowledge-spotlight">
-                  <h4>Signature traits</h4>
-                  <ul className="knowledge-list">
-                    {race.traits.map((trait) => (
-                      <li key={trait}>{trait}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
+  return (
+    <StandardListView
+      entityName="Ancestry"
+      heading="Ancestry library"
+      description={contextDescription}
+      columns={raceColumns}
+      records={records}
+      totalCount={totalCount}
+      emptyTitle="No ancestries curated"
+      emptyMessage="Add your first ancestry to make it available to campaign builders."
+      filterEmptyMessage="No ancestries match the current filters."
+      enableFilters
+      badge={({ filteredCount }) => (
+        <span className="list-chip">{filteredCount} / {totalCount} available</span>
       )}
-    </section>
+    />
   )
 }
 
@@ -4896,7 +4890,16 @@ function StandardListView({
   onCreate,
   onEdit,
   onDelete,
-  emptyMessage
+  emptyMessage,
+  heading,
+  description,
+  badge,
+  information,
+  note,
+  totalCount,
+  emptyTitle,
+  filterEmptyMessage,
+  enableFilters = false
 }) {
   const [visibleColumnIds, setVisibleColumnIds] = useState(() =>
     columns
@@ -4904,6 +4907,7 @@ function StandardListView({
       .map((column) => column.id)
   )
   const [columnMenuOpen, setColumnMenuOpen] = useState(false)
+  const [filters, setFilters] = useState({})
 
   useEffect(() => {
     setVisibleColumnIds((previous) => {
@@ -4930,6 +4934,26 @@ function StandardListView({
     })
   }
 
+  const filterableColumns = useMemo(
+    () => (enableFilters ? columns.filter((column) => column.filterable !== false) : []),
+    [columns, enableFilters]
+  )
+
+  useEffect(() => {
+    if (!enableFilters) return
+    setFilters((previous) => {
+      const next = {}
+      filterableColumns.forEach((column) => {
+        next[column.id] = previous[column.id] ?? ''
+      })
+      return next
+    })
+  }, [enableFilters, filterableColumns])
+
+  const updateFilter = (columnId, value) => {
+    setFilters((previous) => ({ ...previous, [columnId]: value }))
+  }
+
   const renderCellValue = (column, record) => {
     if (typeof column.accessor === 'function') {
       return column.accessor(record)
@@ -4940,17 +4964,70 @@ function StandardListView({
     return '—'
   }
 
+  const resolveFilterValue = (column, record) => {
+    if (typeof column.filterValue === 'function') {
+      return column.filterValue(record)
+    }
+    if (typeof column.accessor === 'function') {
+      return column.accessor(record)
+    }
+    if (column.id in record) {
+      return record[column.id]
+    }
+    return ''
+  }
+
   const visibleColumns = columns.filter((column) => visibleColumnIds.includes(column.id))
+
+  const hasActiveFilters = useMemo(
+    () =>
+      enableFilters &&
+      filterableColumns.some((column) => {
+        const value = (filters[column.id] ?? '').trim()
+        return value.length > 0
+      }),
+    [enableFilters, filterableColumns, filters]
+  )
+
+  const filteredRecords = useMemo(() => {
+    if (!enableFilters || filterableColumns.length === 0) return records
+
+    return records.filter((record) =>
+      filterableColumns.every((column) => {
+        const filterValue = (filters[column.id] ?? '').trim()
+        if (!filterValue) return true
+        const candidate = resolveFilterValue(column, record)
+        if (candidate === null || candidate === undefined) return false
+        return String(candidate).toLowerCase().includes(filterValue.toLowerCase())
+      })
+    )
+  }, [enableFilters, filterableColumns, filters, records])
+
+  const displayedRecords = filteredRecords
+  const displayedCount = displayedRecords.length
+  const resolvedTotalCount = typeof totalCount === 'number' ? totalCount : records.length
+
+  const resolvedBadge = useMemo(() => {
+    if (!badge) return null
+    return typeof badge === 'function'
+      ? badge({ filteredCount: displayedCount, totalCount: resolvedTotalCount, hasActiveFilters })
+      : badge
+  }, [badge, displayedCount, resolvedTotalCount, hasActiveFilters])
 
   return (
     <section className="standard-list">
       <header className="list-header">
         <div>
-          <h2>{entityName} directory</h2>
-          <p>Configure and orchestrate {entityName.toLowerCase()}s for the entire platform.</p>
+          <h2>{heading || `${entityName} directory`}</h2>
+          {(description ?? true) && (
+            <p>
+              {description || `Configure and orchestrate ${entityName.toLowerCase()}s for the entire platform.`}
+            </p>
+          )}
         </div>
 
         <div className="list-actions">
+          {resolvedBadge && <div className="list-metric">{resolvedBadge}</div>}
           <div className="column-visibility">
             <button
               type="button"
@@ -4985,10 +5062,39 @@ function StandardListView({
         </div>
       </header>
 
-      {records.length === 0 ? (
+      {information && <div className="list-information">{information}</div>}
+
+      {enableFilters && filterableColumns.length > 0 && (
+        <div className="list-filters" role="region" aria-label="Filters">
+          {filterableColumns.map((column) => (
+            <label key={column.id} className="filter-field">
+              <span>{column.label}</span>
+              <input
+                type="text"
+                value={filters[column.id] ?? ''}
+                onChange={(event) => updateFilter(column.id, event.target.value)}
+                placeholder={column.filterPlaceholder || `Filter ${column.label.toLowerCase()}`}
+              />
+            </label>
+          ))}
+          {hasActiveFilters && (
+            <div className="filter-actions">
+              <button type="button" className="ghost" onClick={() => setFilters({})}>
+                Clear filters
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {displayedRecords.length === 0 ? (
         <div className="empty-state">
-          <h3>No {entityName.toLowerCase()}s yet</h3>
-          <p>{emptyMessage}</p>
+          <h3>{emptyTitle || `No ${entityName.toLowerCase()}s yet`}</h3>
+          <p>
+            {records.length === 0
+              ? emptyMessage
+              : filterEmptyMessage || `No ${entityName.toLowerCase()}s match the current filters.`}
+          </p>
         </div>
       ) : (
         <div className="table-container">
@@ -5033,6 +5139,8 @@ function StandardListView({
           </table>
         </div>
       )}
+
+      {note && <div className="list-note">{note}</div>}
     </section>
   )
 }
