@@ -299,6 +299,45 @@
 }
 
 
+.home-page {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1.5rem;
+}
+
+.home-hero {
+  max-width: 680px;
+  width: min(100%, 680px);
+  padding: 3rem 2.5rem;
+  border-radius: 1.5rem;
+  background: linear-gradient(145deg, rgba(15, 118, 110, 0.2), rgba(8, 47, 73, 0.65));
+  color: #f8fafc;
+  text-align: center;
+  box-shadow: 0 32px 60px rgba(15, 23, 42, 0.35);
+}
+
+.home-hero h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(2rem, 3vw, 2.75rem);
+  letter-spacing: 0.04em;
+}
+
+.home-hero p {
+  margin: 0 auto 2rem;
+  max-width: 38ch;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: rgba(248, 250, 252, 0.85);
+}
+
+.home-actions {
+  display: flex;
+  justify-content: center;
+}
+
+
 .app-header {
   display: flex;
   flex-direction: column;
@@ -326,6 +365,33 @@
   align-items: center;
   gap: 0.85rem;
   min-width: 0;
+}
+
+.brand-home-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 0.75rem;
+  border: none;
+  background: rgba(15, 23, 42, 0.18);
+  color: inherit;
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.brand-home-link:hover,
+.brand-home-link:focus-visible {
+  background: rgba(45, 212, 191, 0.25);
+  box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.45);
+}
+
+.brand-home-link:focus-visible {
+  outline: none;
 }
 
 .brand-logo {
@@ -625,17 +691,23 @@
   gap: 1rem;
 }
 
-.campaign-card.campaign-card-clickable {
+.world-card.world-card-clickable,
+.campaign-card.campaign-card-clickable,
+.character-card.character-card-clickable {
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.campaign-card.campaign-card-clickable:hover {
+.world-card.world-card-clickable:hover,
+.campaign-card.campaign-card-clickable:hover,
+.character-card.character-card-clickable:hover {
   transform: translateY(-4px);
   box-shadow: 0 24px 50px rgba(15, 23, 42, 0.16);
 }
 
-.campaign-card.campaign-card-clickable:focus-visible {
+.world-card.world-card-clickable:focus-visible,
+.campaign-card.campaign-card-clickable:focus-visible,
+.character-card.character-card-clickable:focus-visible {
   outline: 2px solid rgba(56, 189, 248, 0.7);
   outline-offset: 4px;
 }
