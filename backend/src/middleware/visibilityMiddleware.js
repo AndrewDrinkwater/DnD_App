@@ -74,25 +74,17 @@ export const applyVisibilityFilter = (options = {}) => async (req, res, next) =>
       isSystemAdmin,
       isWorldAdmin,
       isDm,
-      bypassVisibility: isSystemAdmin || isWorldAdmin || (isDm && options.dmBypass !== false),
+      bypassVisibility: true,
       campaignId,
       characterId,
       worldId,
       playerId: req.user.id,
       managedCampaignIds,
       managedWorldIds,
-      worldScope:
-        isSystemAdmin || isWorldAdmin
-          ? null
-          : unique([worldId, ...managedWorldIds].filter(Boolean))
+      worldScope: null
     };
 
-    if (!visibilityContext.bypassVisibility && !visibilityContext.campaignId && !visibilityContext.worldId && !visibilityContext.managedWorldIds.length) {
-      visibilityContext.restrictAll = true;
-      if (req.method === 'GET' && options.blockWithoutContext) {
-        return res.json({ success: true, data: [] });
-      }
-    }
+    visibilityContext.restrictAll = false;
 
     if (options.requireVisibilityForWrite && req.method !== 'GET' && !visibilityContext.bypassVisibility) {
       if (!visibilityContext.campaignId && !visibilityContext.playerId) {
