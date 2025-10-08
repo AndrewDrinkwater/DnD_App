@@ -2947,6 +2947,23 @@ button.primary.full-width {
   min-height: 100%;
 }
 
+.drawer-form.drawer-form--columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.drawer-form.drawer-form--columns label,
+.drawer-form.drawer-form--columns .list-collector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.drawer-form.drawer-form--columns .list-collector {
+  grid-column: 1 / -1;
+}
+
 .drawer-form label {
   display: flex;
   flex-direction: column;
