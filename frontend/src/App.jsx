@@ -145,76 +145,142 @@ const seededNpcs = [
   {
     id: 'npc-leosin',
     name: 'Leosin Erlanthar',
-    role: 'Harper Operative',
     demeanor: 'Measured and insightful',
     description: 'A monk of the Harpers piecing together the Cult of the Dragon\'s plans.',
     worldId: 'world-faerun',
+    raceId: 'race-lightfoot-halfling',
+    status: 'Alive',
+    causeOfDeath: '',
+    locationId: 'location-greenest-refuge',
+    hometownId: 'location-greenest',
     campaignIds: ['campaign-tiamat'],
     characterIds: ['character-lyra'],
     visibility: 'party',
-    tags: ['Harper network', 'Ally'],
-    location: 'Greenest refugee camp',
-    lastInteractedAt: '2024-04-15T20:05:00Z'
+    notes: 'Trusts the party but remains wary of cult infiltrators.'
   },
   {
     id: 'npc-rezmir',
     name: 'Rezmir',
-    role: 'Black Wyrmspeaker',
     demeanor: 'Cold and ruthless',
     description:
       'Half-dragon tactician orchestrating the movement of hoarded treasure toward the Well of Dragons.',
     worldId: 'world-faerun',
+    raceId: '',
+    status: 'Unknown',
+    causeOfDeath: '',
+    locationId: 'location-skyreach',
+    hometownId: '',
     campaignIds: ['campaign-tiamat'],
     visibility: 'dm',
-    tags: ['Cult of the Dragon', 'Villain'],
-    location: 'Skyreach Castle command deck',
-    lastInteractedAt: '2024-04-11T09:15:00Z'
+    notes: 'Rumours suggest Rezmir seeks to recruit a new clutch of black dragons.'
   },
   {
     id: 'npc-ontharr',
     name: 'Ontharr Frume',
-    role: 'Order of the Gauntlet Paladin',
     demeanor: 'Boisterous and honorable',
     description: 'A forthright paladin coordinating the alliance response to the cult raids.',
     worldId: 'world-faerun',
+    raceId: '',
+    status: 'Alive',
+    causeOfDeath: '',
+    locationId: 'location-waterdeep-gauntlet',
+    hometownId: 'location-waterdeep',
     campaignIds: ['campaign-tiamat'],
     visibility: 'public',
-    tags: ['Order of the Gauntlet', 'Ally'],
-    location: 'Waterdeep chapter house',
-    lastInteractedAt: '2024-04-13T17:40:00Z'
+    notes: 'Keeps morale high with nightly feasts and war stories.'
+  }
+]
+
+const seededLocationTypes = [
+  {
+    id: 'location-type-region',
+    name: 'Region',
+    description: 'A broad area such as a continent, kingdom, or province.'
+  },
+  {
+    id: 'location-type-city',
+    name: 'City',
+    description: 'A large settlement or hub of civilisation.'
+  },
+  {
+    id: 'location-type-site',
+    name: 'Site',
+    description: 'A point of interest such as a keep, camp, or landmark.'
   }
 ]
 
 const seededLocations = [
   {
+    id: 'location-faerun',
+    name: 'Faerûn Heartlands',
+    typeId: 'location-type-region',
+    parentId: '',
+    summary: 'Rolling fields and trade roads linking the Western Heartlands to the Sea of Swords.',
+    worldId: 'world-faerun',
+    campaignIds: ['campaign-tiamat'],
+    visibility: 'public',
+    tags: ['Trade routes', 'Allied patrols'],
+    lastScoutedAt: '2024-04-03T09:00:00Z',
+    notes: 'Increased militia patrols have disrupted several cult caravans.'
+  },
+  {
+    id: 'location-waterdeep',
+    name: 'Waterdeep',
+    typeId: 'location-type-city',
+    parentId: 'location-faerun',
+    summary: 'The City of Splendours, staging ground for allied resistance.',
+    worldId: 'world-faerun',
+    campaignIds: ['campaign-tiamat'],
+    visibility: 'public',
+    tags: ['Alliance', 'Harbour'],
+    lastScoutedAt: '2024-04-07T18:00:00Z',
+    notes: 'Harper messengers report cult spies probing the Dock Ward.'
+  },
+  {
+    id: 'location-waterdeep-gauntlet',
+    name: 'Order of the Gauntlet Chapterhouse',
+    typeId: 'location-type-site',
+    parentId: 'location-waterdeep',
+    summary: 'Fortified manor serving as headquarters for the Order within Waterdeep.',
+    worldId: 'world-faerun',
+    campaignIds: ['campaign-tiamat'],
+    visibility: 'party',
+    tags: ['Allies', 'Briefings'],
+    lastScoutedAt: '2024-04-12T12:00:00Z',
+    notes: 'Logistics wing preparing relief shipments bound for Greenest.'
+  },
+  {
     id: 'location-greenest',
     name: 'Greenest',
-    type: 'Frontier town',
+    typeId: 'location-type-city',
+    parentId: 'location-faerun',
     summary: 'A resilient settlement rebuilding after the opening assault from the cult.',
     worldId: 'world-faerun',
     campaignIds: ['campaign-tiamat'],
     visibility: 'public',
     tags: ['Rebuilding', 'Refugees'],
     lastScoutedAt: '2024-04-08T14:00:00Z',
-    notes: 'Governor Nighthill is coordinating relief efforts and requests additional healers.'
+    notes: 'Governor Nighthill coordinates relief efforts and requests additional healers.'
   },
   {
-    id: 'location-cult-camp',
-    name: 'Cultist Encampment',
-    type: 'Hidden encampment',
-    summary: 'A covert camp tucked inside the Reaching Woods used to marshal stolen spoils.',
+    id: 'location-greenest-refuge',
+    name: 'Greenest Refugee Camp',
+    typeId: 'location-type-site',
+    parentId: 'location-greenest',
+    summary: 'Tents and hastily erected shelters for displaced villagers along the Chionthar.',
     worldId: 'world-faerun',
     campaignIds: ['campaign-tiamat'],
     characterIds: ['character-lyra'],
     visibility: 'party',
-    tags: ['Stealth', 'Reconnaissance'],
+    tags: ['Relief', 'Harper presence'],
     lastScoutedAt: '2024-04-10T22:00:00Z',
-    notes: 'Currently quiet after the raid; scouts report the bulk of forces relocated north.'
+    notes: 'Nightly briefings disseminate cult troop movements gathered by scouts.'
   },
   {
     id: 'location-skyreach',
     name: 'Skyreach Castle',
-    type: 'Flying fortress',
+    typeId: 'location-type-site',
+    parentId: '',
     summary: 'An ice-carved citadel commandeered by the cult to move tribute swiftly across Faerûn.',
     worldId: 'world-faerun',
     campaignIds: ['campaign-tiamat'],
@@ -272,15 +338,15 @@ const seededOrganisations = [
   }
 ]
 
-const relationshipKinds = [
+const seededRelationshipTypes = [
   {
     id: 'sibling',
     name: 'Sibling',
     category: 'Family',
     forwardLabel: 'Sibling of',
     reverseLabel: 'Sibling of',
-    allowedSources: ['npc', 'user'],
-    allowedTargets: ['npc', 'user']
+    allowedSources: ['npc', 'character'],
+    allowedTargets: ['npc', 'character']
   },
   {
     id: 'mentor',
@@ -288,8 +354,8 @@ const relationshipKinds = [
     category: 'Guidance',
     forwardLabel: 'Mentor of',
     reverseLabel: 'Mentee of',
-    allowedSources: ['npc', 'user'],
-    allowedTargets: ['npc', 'user']
+    allowedSources: ['npc', 'character'],
+    allowedTargets: ['npc', 'character']
   },
   {
     id: 'manager',
@@ -297,8 +363,8 @@ const relationshipKinds = [
     category: 'Organisation',
     forwardLabel: 'Manager of',
     reverseLabel: 'Reports to',
-    allowedSources: ['npc', 'user'],
-    allowedTargets: ['npc', 'user']
+    allowedSources: ['npc', 'character', 'organisation'],
+    allowedTargets: ['npc', 'character']
   },
   {
     id: 'member',
@@ -306,7 +372,7 @@ const relationshipKinds = [
     category: 'Affiliation',
     forwardLabel: 'Member of',
     reverseLabel: 'Roster includes',
-    allowedSources: ['npc', 'user'],
+    allowedSources: ['npc', 'character'],
     allowedTargets: ['organisation']
   },
   {
@@ -316,7 +382,7 @@ const relationshipKinds = [
     forwardLabel: 'Employs',
     reverseLabel: 'Employed by',
     allowedSources: ['organisation'],
-    allowedTargets: ['npc', 'user']
+    allowedTargets: ['npc', 'character']
   },
   {
     id: 'ally',
@@ -341,7 +407,7 @@ const relationshipKinds = [
 const seededRelationships = [
   {
     id: 'relationship-leosin-harpers',
-    kindId: 'member',
+    typeId: 'member',
     orientation: 'forward',
     source: { type: 'npc', id: 'npc-leosin' },
     target: { type: 'organisation', id: 'organisation-harpers' },
@@ -350,7 +416,7 @@ const seededRelationships = [
   },
   {
     id: 'relationship-ontharr-gauntlet',
-    kindId: 'member',
+    typeId: 'member',
     orientation: 'forward',
     source: { type: 'npc', id: 'npc-ontharr' },
     target: { type: 'organisation', id: 'organisation-order-of-the-gauntlet' },
@@ -359,7 +425,7 @@ const seededRelationships = [
   },
   {
     id: 'relationship-rezmir-cult',
-    kindId: 'employer',
+    typeId: 'employer',
     orientation: 'reverse',
     source: { type: 'npc', id: 'npc-rezmir' },
     target: { type: 'organisation', id: 'organisation-cult-of-the-dragon' },
@@ -368,7 +434,7 @@ const seededRelationships = [
   },
   {
     id: 'relationship-harpers-gauntlet',
-    kindId: 'ally',
+    typeId: 'ally',
     orientation: 'forward',
     source: { type: 'organisation', id: 'organisation-harpers' },
     target: { type: 'organisation', id: 'organisation-order-of-the-gauntlet' },
@@ -377,12 +443,21 @@ const seededRelationships = [
   },
   {
     id: 'relationship-leosin-ontharr',
-    kindId: 'mentor',
+    typeId: 'mentor',
     orientation: 'reverse',
     source: { type: 'npc', id: 'npc-leosin' },
     target: { type: 'npc', id: 'npc-ontharr' },
     note: 'Ontharr guided Leosin through Order of the Gauntlet combat drills in youth.',
     createdAt: '2024-04-07T16:45:00Z'
+  },
+  {
+    id: 'relationship-lyra-leosin',
+    typeId: 'mentor',
+    orientation: 'forward',
+    source: { type: 'character', id: 'character-lyra' },
+    target: { type: 'npc', id: 'npc-leosin' },
+    note: 'Lyra studies the Harpers\' intelligence craft under Leosin\'s tutelage.',
+    createdAt: '2024-04-05T10:15:00Z'
   }
 ]
 
@@ -617,12 +692,27 @@ const modules = [
 const sections = [
   { id: 'users', label: 'Users' },
   { id: 'roles', label: 'Roles' },
-  { id: 'campaigns', label: 'Campaigns' }
+  { id: 'campaigns', label: 'Campaigns' },
+  { id: 'location-types', label: 'Location types' },
+  { id: 'relationship-types', label: 'Relationship types' }
+]
+
+const RELATIONSHIP_ENTITY_OPTIONS = [
+  { id: 'npc', label: 'NPC' },
+  { id: 'character', label: 'Character' },
+  { id: 'organisation', label: 'Organisation' }
 ]
 
 const capabilityMatrix = {
   'platform-admin': {
-    'system-admin': ['view', 'manage-users', 'manage-roles', 'manage-campaigns']
+    'system-admin': [
+      'view',
+      'manage-users',
+      'manage-roles',
+      'manage-campaigns',
+      'manage-location-types',
+      'manage-relationship-types'
+    ]
   }
 }
 
@@ -908,10 +998,12 @@ function NpcDirectory({
   campaigns = [],
   characters = [],
   worlds = [],
+  locations = [],
+  races = [],
   onSave,
   onDelete,
   relationships = [],
-  relationshipKinds = [],
+  relationshipTypes = [],
   entityDirectory,
   onCreateRelationship,
   onDeleteRelationship,
@@ -923,11 +1015,41 @@ function NpcDirectory({
     ? 'Pick a campaign or character from the header to reveal NPCs tied to them.'
     : 'No NPCs have been catalogued for this context yet.'
 
+  const raceLookup = useMemo(() => {
+    const map = new Map()
+    races.forEach((race) => {
+      if (!race?.id) return
+      map.set(race.id, race.name || 'Unknown ancestry')
+    })
+    return map
+  }, [races])
+
+  const locationLookup = useMemo(() => {
+    const map = new Map()
+    locations.forEach((location) => {
+      if (!location?.id) return
+      map.set(location.id, location.name || 'Unknown location')
+    })
+    return map
+  }, [locations])
+
   const npcColumns = useMemo(
     () => [
       { id: 'name', label: 'Name', accessor: (npc) => npc.name },
-      { id: 'role', label: 'Role', accessor: (npc) => npc.role || '—' },
-      { id: 'demeanor', label: 'Disposition', accessor: (npc) => npc.demeanor || '—', defaultVisible: false },
+      { id: 'status', label: 'Status', accessor: (npc) => npc.status || 'Unknown' },
+      {
+        id: 'race',
+        label: 'Ancestry',
+        accessor: (npc) => raceLookup.get(npc.raceId) || '—',
+        defaultVisible: false,
+        filterValue: (npc) => raceLookup.get(npc.raceId) || ''
+      },
+      {
+        id: 'demeanor',
+        label: 'Disposition',
+        accessor: (npc) => npc.demeanor || '—',
+        defaultVisible: false
+      },
       {
         id: 'world',
         label: 'World',
@@ -950,26 +1072,9 @@ function NpcDirectory({
                 .join(', ')
             : '') || '—',
         defaultVisible: false
-      },
-      {
-        id: 'tags',
-        label: 'Tags',
-        accessor: (npc) => (Array.isArray(npc.tags) ? npc.tags.join(', ') : '—'),
-        defaultVisible: false
-      },
-      {
-        id: 'location',
-        label: 'Current lead',
-        accessor: (npc) => npc.location || '—'
-      },
-      {
-        id: 'lastInteractedAt',
-        label: 'Last seen',
-        accessor: (npc) => formatRelativeTime(npc.lastInteractedAt),
-        filterValue: (npc) => npc.lastInteractedAt || ''
       }
     ],
-    [campaignLookup, characterLookup, worldLookup]
+    [campaignLookup, characterLookup, worldLookup, raceLookup]
   )
 
   const contextLabel = showContextPrompt ? (
@@ -988,31 +1093,35 @@ function NpcDirectory({
   const [viewer, setViewer] = useState({ open: false, recordId: null })
   const [form, setForm] = useState(() => ({
     name: '',
-    role: '',
     demeanor: '',
     description: '',
-    worldId: worlds[0]?.id ?? '',
+    status: 'Alive',
+    causeOfDeath: '',
+    worldId: '',
+    raceId: '',
+    locationId: '',
+    hometownId: '',
     visibility: 'campaign',
     campaignIds: [],
     characterIds: [],
-    tags: '',
-    location: '',
-    lastInteractedAt: ''
+    notes: ''
   }))
 
   const resetForm = () => {
     setForm({
       name: '',
-      role: '',
       demeanor: '',
       description: '',
-      worldId: worlds[0]?.id ?? '',
+      status: 'Alive',
+      causeOfDeath: '',
+      worldId: '',
+      raceId: '',
+      locationId: '',
+      hometownId: '',
       visibility: 'campaign',
       campaignIds: [],
       characterIds: [],
-      tags: '',
-      location: '',
-      lastInteractedAt: ''
+      notes: ''
     })
   }
 
@@ -1024,16 +1133,18 @@ function NpcDirectory({
   const openEdit = (record) => {
     setForm({
       name: record.name || '',
-      role: record.role || '',
       demeanor: record.demeanor || '',
       description: record.description || '',
-      worldId: record.worldId || worlds[0]?.id || '',
+      status: record.status || 'Unknown',
+      causeOfDeath: record.status === 'Dead' ? record.causeOfDeath || '' : '',
+      worldId: record.worldId || '',
+      raceId: record.raceId || '',
+      locationId: record.locationId || '',
+      hometownId: record.hometownId || '',
       visibility: record.visibility || 'campaign',
       campaignIds: Array.isArray(record.campaignIds) ? record.campaignIds : [],
       characterIds: Array.isArray(record.characterIds) ? record.characterIds : [],
-      tags: Array.isArray(record.tags) ? record.tags.join(', ') : '',
-      location: record.location || '',
-      lastInteractedAt: record.lastInteractedAt ? toDateTimeInputValue(record.lastInteractedAt) : ''
+      notes: record.notes || ''
     })
     setEditor({ open: true, mode: 'edit', record })
   }
@@ -1051,25 +1162,41 @@ function NpcDirectory({
     setForm((prev) => ({ ...prev, characterIds: nextCharacterIds }))
   }
 
+  const locationOptions = useMemo(
+    () =>
+      locations
+        .map((location) => ({ id: location.id, name: location.name || 'Unnamed location' }))
+        .filter((option) => option.id)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [locations]
+  )
+
+  const raceOptions = useMemo(
+    () =>
+      races
+        .map((race) => ({ id: race.id, name: race.name || 'Unnamed ancestry' }))
+        .filter((option) => option.id)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [races]
+  )
+
   const handleSubmit = (event) => {
     event.preventDefault()
     if (!form.name.trim()) return
 
     const payload = {
       name: form.name.trim(),
-      role: form.role.trim(),
       demeanor: form.demeanor.trim(),
       description: form.description.trim(),
+      status: form.status || 'Unknown',
+      causeOfDeath: form.status === 'Dead' ? form.causeOfDeath.trim() : '',
       worldId: form.worldId,
+      raceId: form.raceId || '',
+      locationId: form.locationId || '',
+      hometownId: form.hometownId || '',
       visibility: form.visibility,
       campaignIds: form.campaignIds,
-      characterIds: form.characterIds,
-      tags: form.tags
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-      location: form.location.trim(),
-      lastInteractedAt: fromDateTimeInputValue(form.lastInteractedAt)
+      characterIds: form.characterIds
     }
 
     if (editor.mode === 'edit' && editor.record) {
@@ -1171,7 +1298,7 @@ function NpcDirectory({
             </>
           }
         >
-          <form id={formId} className="drawer-form" onSubmit={handleSubmit}>
+          <form id={formId} className="drawer-form drawer-form--columns" onSubmit={handleSubmit}>
             <label>
               <span>Name</span>
               <input
@@ -1183,21 +1310,15 @@ function NpcDirectory({
             </label>
 
             <label>
-              <span>Role or title</span>
-              <input
-                type="text"
-                value={form.role}
-                onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value }))}
-              />
-            </label>
-
-            <label>
               <span>World</span>
               <select
                 value={form.worldId}
                 onChange={(event) => setForm((prev) => ({ ...prev, worldId: event.target.value }))}
+                required
               >
-                <option value="">Unassigned world</option>
+                <option value="" disabled>
+                  Select a world
+                </option>
                 {worlds.map((world) => (
                   <option key={world.id} value={world.id}>
                     {world.name}
@@ -1213,6 +1334,46 @@ function NpcDirectory({
                 value={form.demeanor}
                 onChange={(event) => setForm((prev) => ({ ...prev, demeanor: event.target.value }))}
               />
+            </label>
+
+            <label>
+              <span>Status</span>
+              <select
+                value={form.status}
+                onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value }))}
+              >
+                <option value="Alive">Alive</option>
+                <option value="Dead">Dead</option>
+                <option value="Unknown">Unknown</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
+
+            {form.status === 'Dead' && (
+              <label>
+                <span>Cause of death</span>
+                <input
+                  type="text"
+                  value={form.causeOfDeath}
+                  onChange={(event) => setForm((prev) => ({ ...prev, causeOfDeath: event.target.value }))}
+                  placeholder="e.g. Slain by a black dragon"
+                />
+              </label>
+            )}
+
+            <label>
+              <span>Ancestry</span>
+              <select
+                value={form.raceId}
+                onChange={(event) => setForm((prev) => ({ ...prev, raceId: event.target.value }))}
+              >
+                <option value="">Unspecified</option>
+                {raceOptions.map((race) => (
+                  <option key={race.id} value={race.id}>
+                    {race.name}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label>
@@ -1256,32 +1417,33 @@ function NpcDirectory({
             />
 
             <label>
-              <span>Current lead</span>
-              <input
-                type="text"
-                value={form.location}
-                onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
-              />
+              <span>Current location</span>
+              <select
+                value={form.locationId}
+                onChange={(event) => setForm((prev) => ({ ...prev, locationId: event.target.value }))}
+              >
+                <option value="">Unknown</option>
+                {locationOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label>
-              <span>Tags (comma separated)</span>
-              <input
-                type="text"
-                value={form.tags}
-                onChange={(event) => setForm((prev) => ({ ...prev, tags: event.target.value }))}
-              />
-            </label>
-
-            <label>
-              <span>Last seen</span>
-              <input
-                type="datetime-local"
-                value={form.lastInteractedAt}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, lastInteractedAt: event.target.value }))
-                }
-              />
+              <span>Hometown</span>
+              <select
+                value={form.hometownId}
+                onChange={(event) => setForm((prev) => ({ ...prev, hometownId: event.target.value }))}
+              >
+                <option value="">Unknown</option>
+                {locationOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label>
@@ -1299,7 +1461,6 @@ function NpcDirectory({
       <RecordDrawer
         open={viewer.open && Boolean(currentViewerRecord)}
         title={currentViewerRecord ? currentViewerRecord.name : 'NPC detail'}
-        subtitle={currentViewerRecord?.role || undefined}
         onClose={closeViewer}
       >
         {currentViewerRecord ? (
@@ -1307,47 +1468,49 @@ function NpcDirectory({
             <section className="drawer-subsection">
               <div className="drawer-field-grid">
                 <div>
-                  <h4>Disposition</h4>
-                  <p>{currentViewerRecord.demeanor || 'Unknown'}</p>
+                  <h4>Status</h4>
+                  <p>{currentViewerRecord.status || 'Unknown'}</p>
+                </div>
+                <div>
+                  <h4>Ancestry</h4>
+                  <p>{raceLookup.get(currentViewerRecord.raceId) || 'Unspecified'}</p>
                 </div>
                 <div>
                   <h4>World</h4>
                   <p>{worldLookup.get(currentViewerRecord.worldId) || 'Unassigned'}</p>
                 </div>
+              </div>
+              <div className="drawer-field-grid">
                 <div>
-                  <h4>Last seen</h4>
-                  <p>{formatRelativeTime(currentViewerRecord.lastInteractedAt)}</p>
+                  <h4>Disposition</h4>
+                  <p>{currentViewerRecord.demeanor || 'Unknown'}</p>
+                </div>
+                <div>
+                  <h4>Current location</h4>
+                  <p>{locationLookup.get(currentViewerRecord.locationId) || 'Unknown'}</p>
+                </div>
+                <div>
+                  <h4>Hometown</h4>
+                  <p>{locationLookup.get(currentViewerRecord.hometownId) || 'Unknown'}</p>
                 </div>
               </div>
+              {currentViewerRecord.status === 'Dead' && currentViewerRecord.causeOfDeath && (
+                <div>
+                  <h4>Cause of death</h4>
+                  <p>{currentViewerRecord.causeOfDeath}</p>
+                </div>
+              )}
               <div>
                 <h4>Summary</h4>
                 <p>{currentViewerRecord.description || 'No background summary recorded yet.'}</p>
               </div>
-              {Array.isArray(currentViewerRecord.tags) && currentViewerRecord.tags.length > 0 && (
-                <div>
-                  <h4>Tags</h4>
-                  <div className="knowledge-chip-row">
-                    {currentViewerRecord.tags.map((tag) => (
-                      <span key={tag} className="knowledge-chip knowledge-chip--tag">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {currentViewerRecord.location && (
-                <div>
-                  <h4>Current lead</h4>
-                  <p>{currentViewerRecord.location}</p>
-                </div>
-              )}
             </section>
 
             <EntityRelationshipManager
               entity={currentViewerRecord}
               entityType="npc"
               relationships={relationships}
-              relationshipKinds={relationshipKinds}
+              relationshipTypes={relationshipTypes}
               entityDirectory={entityDirectory}
               onCreateRelationship={onCreateRelationship}
               onDeleteRelationship={onDeleteRelationship}
@@ -1379,6 +1542,7 @@ function LocationsAtlas({
   campaigns = [],
   characters = [],
   worlds = [],
+  locationTypes = [],
   onSave,
   onDelete
 }) {
@@ -1386,10 +1550,43 @@ function LocationsAtlas({
     ? 'Set a campaign or character context to reveal scouting intel.'
     : 'No locations have been recorded for this context yet.'
 
+  const locationTypeLookup = useMemo(() => {
+    const map = new Map()
+    locationTypes.forEach((type) => {
+      if (!type?.id) return
+      map.set(type.id, type.name || 'Untitled type')
+    })
+    return map
+  }, [locationTypes])
+
+  const locationNameLookup = useMemo(() => {
+    const map = new Map()
+    if (Array.isArray(records)) {
+      records.forEach((location) => {
+        if (location?.id) {
+          map.set(location.id, location.name || 'Unnamed location')
+        }
+      })
+    }
+    return map
+  }, [records])
+
   const locationColumns = useMemo(
     () => [
       { id: 'name', label: 'Location', accessor: (location) => location.name },
-      { id: 'type', label: 'Type', accessor: (location) => location.type || '—' },
+      {
+        id: 'type',
+        label: 'Type',
+        accessor: (location) => locationTypeLookup.get(location.typeId) || '—',
+        filterValue: (location) => locationTypeLookup.get(location.typeId) || ''
+      },
+      {
+        id: 'parent',
+        label: 'Parent',
+        accessor: (location) => locationNameLookup.get(location.parentId) || '—',
+        defaultVisible: false,
+        filterValue: (location) => locationNameLookup.get(location.parentId) || ''
+      },
       {
         id: 'world',
         label: 'World',
@@ -1438,7 +1635,7 @@ function LocationsAtlas({
         filterValue: (location) => location.lastScoutedAt || ''
       }
     ],
-    [campaignLookup, characterLookup, worldLookup]
+    [campaignLookup, characterLookup, worldLookup, locationTypeLookup, locationNameLookup]
   )
 
   const contextLabel = showContextPrompt ? (
@@ -1456,7 +1653,8 @@ function LocationsAtlas({
   const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
   const [form, setForm] = useState(() => ({
     name: '',
-    type: '',
+    typeId: locationTypes[0]?.id ?? '',
+    parentId: '',
     summary: '',
     notes: '',
     worldId: worlds[0]?.id ?? '',
@@ -1470,7 +1668,8 @@ function LocationsAtlas({
   const resetForm = () => {
     setForm({
       name: '',
-      type: '',
+      typeId: locationTypes[0]?.id ?? '',
+      parentId: '',
       summary: '',
       notes: '',
       worldId: worlds[0]?.id ?? '',
@@ -1490,7 +1689,8 @@ function LocationsAtlas({
   const openEdit = (record) => {
     setForm({
       name: record.name || '',
-      type: record.type || '',
+      typeId: record.typeId || record.type || '',
+      parentId: record.parentId || '',
       summary: record.summary || '',
       notes: record.notes || '',
       worldId: record.worldId || worlds[0]?.id || '',
@@ -1522,7 +1722,8 @@ function LocationsAtlas({
 
     const payload = {
       name: form.name.trim(),
-      type: form.type.trim(),
+      typeId: form.typeId || '',
+      parentId: form.parentId || '',
       summary: form.summary.trim(),
       notes: form.notes.trim(),
       worldId: form.worldId,
@@ -1537,13 +1738,27 @@ function LocationsAtlas({
     }
 
     if (editor.mode === 'edit' && editor.record) {
-      onSave?.({ ...payload, id: editor.record.id }, 'edit')
+      const adjusted =
+        editor.record.id && payload.parentId === editor.record.id
+          ? { ...payload, parentId: '' }
+          : payload
+      onSave?.({ ...adjusted, id: editor.record.id }, 'edit')
     } else {
       onSave?.(payload, 'create')
     }
 
     closeEditor()
   }
+
+  const activeRecordId = editor.record?.id || null
+
+  const parentOptions = useMemo(() => {
+    return Array.isArray(records)
+      ? records
+          .filter((location) => location?.id && location.id !== activeRecordId)
+          .map((location) => ({ id: location.id, name: location.name || 'Unnamed location' }))
+      : []
+  }, [records, activeRecordId])
 
   const handleDelete = (recordId) => {
     if (!onDelete) return
@@ -1607,11 +1822,32 @@ function LocationsAtlas({
 
             <label>
               <span>Type</span>
-              <input
-                type="text"
-                value={form.type}
-                onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}
-              />
+              <select
+                value={form.typeId}
+                onChange={(event) => setForm((prev) => ({ ...prev, typeId: event.target.value }))}
+              >
+                <option value="">Uncategorised</option>
+                {locationTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Parent location</span>
+              <select
+                value={form.parentId}
+                onChange={(event) => setForm((prev) => ({ ...prev, parentId: event.target.value }))}
+              >
+                <option value="">No parent</option>
+                {parentOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label>
@@ -1731,7 +1967,7 @@ function OrganisationsLedger({
   onSave,
   onDelete,
   relationships = [],
-  relationshipKinds = [],
+  relationshipTypes = [],
   entityDirectory = {},
   onCreateRelationship,
   onDeleteRelationship,
@@ -2244,7 +2480,7 @@ function OrganisationsLedger({
               entity={currentViewerRecord}
               entityType="organisation"
               relationships={relationships}
-              relationshipKinds={relationshipKinds}
+              relationshipTypes={relationshipTypes}
               entityDirectory={entityDirectory}
               onCreateRelationship={onCreateRelationship}
               onDeleteRelationship={onDeleteRelationship}
@@ -2526,15 +2762,30 @@ function App() {
     Array.isArray(storedState?.characters) ? storedState.characters : seededCharacters
   )
   const [npcs, setNpcs] = useState(() => (Array.isArray(storedState?.npcs) ? storedState.npcs : seededNpcs))
+  const [locationTypes, setLocationTypes] = useState(() =>
+    Array.isArray(storedState?.locationTypes) ? storedState.locationTypes : seededLocationTypes
+  )
   const [locations, setLocations] = useState(() =>
     Array.isArray(storedState?.locations) ? storedState.locations : seededLocations
   )
   const [organisations, setOrganisations] = useState(() =>
     Array.isArray(storedState?.organisations) ? storedState.organisations : seededOrganisations
   )
-  const [relationships, setRelationships] = useState(() =>
-    Array.isArray(storedState?.relationships) ? storedState.relationships : seededRelationships
+  const [relationshipTypes, setRelationshipTypes] = useState(() =>
+    Array.isArray(storedState?.relationshipTypes)
+      ? storedState.relationshipTypes
+      : seededRelationshipTypes
   )
+  const [relationships, setRelationships] = useState(() => {
+    if (Array.isArray(storedState?.relationships)) {
+      return storedState.relationships.map((relationship) => {
+        const { kindId, ...rest } = relationship || {}
+        const typeId = relationship?.typeId || kindId || ''
+        return { ...rest, typeId }
+      })
+    }
+    return seededRelationships
+  })
   const [races, setRaces] = useState(() => (Array.isArray(storedState?.races) ? storedState.races : seededRaces))
   const [appContext, setAppContext] = useState(() => {
     if (storedState?.appContext && typeof storedState.appContext === 'object') {
@@ -2748,7 +2999,9 @@ function App() {
       canViewPlatformAdmin: derivedPermissions.has('view'),
       canManageUsers: derivedPermissions.has('manage-users'),
       canManageRoles: derivedPermissions.has('manage-roles'),
-      canManageCampaigns: derivedPermissions.has('manage-campaigns')
+      canManageCampaigns: derivedPermissions.has('manage-campaigns'),
+      canManageLocationTypes: derivedPermissions.has('manage-location-types'),
+      canManageRelationshipTypes: derivedPermissions.has('manage-relationship-types')
     }
   }, [currentUserCapabilityRoles])
 
@@ -2992,6 +3245,12 @@ function App() {
         getName: (record) => record?.name || 'Unknown NPC',
         route: '/npcs'
       },
+      character: {
+        label: 'Character',
+        records: characters,
+        getName: (record) => record?.name || 'Unknown character',
+        route: '/characters'
+      },
       organisation: {
         label: 'Organisation',
         records: organisations,
@@ -3005,7 +3264,7 @@ function App() {
         route: '/admin'
       }
     }),
-    [npcs, organisations, users]
+    [npcs, characters, organisations, users]
   )
 
   useEffect(() => {
@@ -3041,8 +3300,10 @@ function App() {
       worlds,
       characters,
       npcs,
+      locationTypes,
       locations,
       organisations,
+      relationshipTypes,
       relationships,
       races,
       session,
@@ -3056,8 +3317,10 @@ function App() {
     worlds,
     characters,
     npcs,
+    locationTypes,
     locations,
     organisations,
+    relationshipTypes,
     relationships,
     races,
     session,
@@ -3506,12 +3769,15 @@ function App() {
   const handleSaveNpc = (payload, mode) => {
     const normalized = {
       ...payload,
+      status: payload.status || 'Unknown',
+      causeOfDeath: payload.status === 'Dead' ? payload.causeOfDeath || '' : '',
       worldId: payload.worldId || '',
       campaignIds: Array.isArray(payload.campaignIds) ? payload.campaignIds : [],
       characterIds: Array.isArray(payload.characterIds) ? payload.characterIds : [],
-      tags: Array.isArray(payload.tags) ? payload.tags : [],
       visibility: payload.visibility || 'campaign',
-      lastInteractedAt: payload.lastInteractedAt || new Date().toISOString(),
+      raceId: payload.raceId || '',
+      locationId: payload.locationId || '',
+      hometownId: payload.hometownId || '',
       updatedAt: new Date().toISOString()
     }
 
@@ -3546,8 +3812,11 @@ function App() {
   }
 
   const handleSaveLocation = (payload, mode) => {
+    const { type: _legacyType, ...restPayload } = payload || {}
     const normalized = {
-      ...payload,
+      ...restPayload,
+      typeId: payload.typeId || '',
+      parentId: payload.parentId || '',
       worldId: payload.worldId || '',
       campaignIds: Array.isArray(payload.campaignIds) ? payload.campaignIds : [],
       characterIds: Array.isArray(payload.characterIds) ? payload.characterIds : [],
@@ -3577,7 +3846,23 @@ function App() {
   }
 
   const handleDeleteLocation = (locationId) => {
-    setLocations((prev) => prev.filter((location) => location.id !== locationId))
+    setLocations((prev) =>
+      prev
+        .filter((location) => location.id !== locationId)
+        .map((location) =>
+          location.parentId === locationId ? { ...location, parentId: '' } : location
+        )
+    )
+    setNpcs((prev) =>
+      prev.map((npc) => {
+        const nextLocationId = npc.locationId === locationId ? '' : npc.locationId
+        const nextHometownId = npc.hometownId === locationId ? '' : npc.hometownId
+        if (nextLocationId !== npc.locationId || nextHometownId !== npc.hometownId) {
+          return { ...npc, locationId: nextLocationId, hometownId: nextHometownId }
+        }
+        return npc
+      })
+    )
   }
 
   const handleSaveOrganisation = (payload, mode) => {
@@ -3627,14 +3912,79 @@ function App() {
     )
   }
 
-  const handleCreateRelationship = ({ kindId, orientation, source, target, note }) => {
-    if (!kindId || !source || !target) return
+  const handleSaveLocationType = (payload, mode) => {
+    const normalized = {
+      ...payload,
+      name: payload.name.trim(),
+      description: payload.description?.trim() || ''
+    }
+
+    if (mode === 'edit') {
+      setLocationTypes((prev) =>
+        prev.map((type) => (type.id === payload.id ? { ...type, ...normalized } : type))
+      )
+      return
+    }
+
+    setLocationTypes((prev) => [
+      ...prev,
+      {
+        ...normalized,
+        id: newId('location-type')
+      }
+    ])
+  }
+
+  const handleDeleteLocationType = (typeId) => {
+    setLocationTypes((prev) => prev.filter((type) => type.id !== typeId))
+    setLocations((prev) =>
+      prev.map((location) => (location.typeId === typeId ? { ...location, typeId: '' } : location))
+    )
+  }
+
+  const handleSaveRelationshipType = (payload, mode) => {
+    const allowedSources = Array.isArray(payload.allowedSources) ? payload.allowedSources : []
+    const allowedTargets = Array.isArray(payload.allowedTargets) ? payload.allowedTargets : []
+
+    const normalized = {
+      ...payload,
+      name: payload.name.trim(),
+      category: payload.category?.trim() || '',
+      forwardLabel: payload.forwardLabel?.trim() || payload.name.trim(),
+      reverseLabel: payload.reverseLabel?.trim() || payload.name.trim(),
+      allowedSources: Array.from(new Set(allowedSources)).filter(Boolean),
+      allowedTargets: Array.from(new Set(allowedTargets)).filter(Boolean)
+    }
+
+    if (mode === 'edit') {
+      setRelationshipTypes((prev) =>
+        prev.map((type) => (type.id === payload.id ? { ...type, ...normalized } : type))
+      )
+      return
+    }
+
+    setRelationshipTypes((prev) => [
+      ...prev,
+      {
+        ...normalized,
+        id: newId('relationship-type')
+      }
+    ])
+  }
+
+  const handleDeleteRelationshipType = (typeId) => {
+    setRelationshipTypes((prev) => prev.filter((type) => type.id !== typeId))
+    setRelationships((prev) => prev.filter((relationship) => relationship.typeId !== typeId))
+  }
+
+  const handleCreateRelationship = ({ typeId, orientation, source, target, note }) => {
+    if (!typeId || !source || !target) return
     const trimmedNote = note ? note.trim() : ''
     setRelationships((prev) => [
       ...prev,
       {
         id: newId('relationship'),
-        kindId,
+        typeId,
         orientation: orientation === 'reverse' ? 'reverse' : 'forward',
         source,
         target,
@@ -3761,6 +4111,12 @@ function App() {
         onSelectCampaign={(campaignId) =>
           setAppContext((prev) => ({ ...prev, campaignId }))
         }
+        relationships={relationships}
+        relationshipTypes={relationshipTypes}
+        entityDirectory={entityDirectory}
+        onCreateRelationship={handleCreateRelationship}
+        onDeleteRelationship={handleDeleteRelationship}
+        onNavigateEntity={handleRelationshipNavigation}
       />
     )
   } else if (pathMatches(currentPath, '/npcs')) {
@@ -3781,10 +4137,12 @@ function App() {
         campaigns={knowledgeCampaigns}
         characters={knowledgeCharacters}
         worlds={knowledgeWorlds}
+        locations={locations}
+        races={races}
         onSave={canManageKnowledge ? handleSaveNpc : undefined}
         onDelete={canManageKnowledge ? handleDeleteNpc : undefined}
         relationships={relationships}
-        relationshipKinds={relationshipKinds}
+        relationshipTypes={relationshipTypes}
         entityDirectory={entityDirectory}
         onCreateRelationship={handleCreateRelationship}
         onDeleteRelationship={handleDeleteRelationship}
@@ -3815,6 +4173,7 @@ function App() {
         worlds={knowledgeWorlds}
         onSave={canManageKnowledge ? handleSaveLocation : undefined}
         onDelete={canManageKnowledge ? handleDeleteLocation : undefined}
+        locationTypes={locationTypes}
       />
     )
   } else if (pathMatches(currentPath, '/organisations')) {
@@ -3837,7 +4196,7 @@ function App() {
         onSave={canManageKnowledge ? handleSaveOrganisation : undefined}
         onDelete={canManageKnowledge ? handleDeleteOrganisation : undefined}
         relationships={relationships}
-        relationshipKinds={relationshipKinds}
+        relationshipTypes={relationshipTypes}
         entityDirectory={entityDirectory}
         onCreateRelationship={handleCreateRelationship}
         onDeleteRelationship={handleDeleteRelationship}
@@ -3876,6 +4235,12 @@ function App() {
         onSaveCampaign={handleSaveCampaign}
         onDeleteCampaign={handleDeleteCampaign}
         worlds={worlds}
+        locationTypes={locationTypes}
+        relationshipTypes={relationshipTypes}
+        onSaveLocationType={handleSaveLocationType}
+        onDeleteLocationType={handleDeleteLocationType}
+        onSaveRelationshipType={handleSaveRelationshipType}
+        onDeleteRelationshipType={handleDeleteRelationshipType}
       />
     ) : (
       <div className="empty-state">
@@ -5465,7 +5830,13 @@ function CharactersPage({
   accessibleCampaigns,
   currentCharacterId,
   onSelectCharacter,
-  onSelectCampaign
+  onSelectCampaign,
+  relationships = [],
+  relationshipTypes = [],
+  entityDirectory = {},
+  onCreateRelationship,
+  onDeleteRelationship,
+  onNavigateEntity
 }) {
   const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
   const [form, setForm] = useState({
@@ -5476,6 +5847,7 @@ function CharactersPage({
     campaignId: appCampaignId || ''
   })
   const [confirmState, setConfirmState] = useState({ open: false, record: null })
+  const [relationshipDrawer, setRelationshipDrawer] = useState({ open: false, recordId: null })
 
   const myCharacters = useMemo(
     () => characters.filter((character) => character.ownerId === currentUserId),
@@ -5576,6 +5948,30 @@ function CharactersPage({
 
   const formId = 'character-record-form'
 
+  const canManageRelationships = typeof onCreateRelationship === 'function'
+
+  const currentRelationshipRecord = useMemo(
+    () =>
+      relationshipDrawer.recordId
+        ? characters.find((character) => character.id === relationshipDrawer.recordId) || null
+        : null,
+    [characters, relationshipDrawer.recordId]
+  )
+
+  const openRelationships = (character) => {
+    setRelationshipDrawer({ open: true, recordId: character.id })
+  }
+
+  const closeRelationshipDrawer = () => {
+    setRelationshipDrawer({ open: false, recordId: null })
+  }
+
+  useEffect(() => {
+    if (relationshipDrawer.open && !currentRelationshipRecord) {
+      closeRelationshipDrawer()
+    }
+  }, [relationshipDrawer.open, currentRelationshipRecord])
+
   const handleSetActive = (character) => {
     onSelectCharacter?.(character.id)
     if (character.campaignId) {
@@ -5633,6 +6029,16 @@ function CharactersPage({
                     </p>
                   </div>
                   <div className="card-actions">
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        openRelationships(character)
+                      }}
+                    >
+                      Relationships
+                    </button>
                     <button
                       type="button"
                       className="ghost"
@@ -5746,6 +6152,58 @@ function CharactersPage({
         </form>
       </RecordDrawer>
 
+      <RecordDrawer
+        open={relationshipDrawer.open && Boolean(currentRelationshipRecord)}
+        title={currentRelationshipRecord ? currentRelationshipRecord.name : 'Character relationships'}
+        subtitle={
+          currentRelationshipRecord
+            ? `${currentRelationshipRecord.className || 'Adventurer'} · Level ${
+                currentRelationshipRecord.level || 1
+              }`
+            : undefined
+        }
+        onClose={closeRelationshipDrawer}
+      >
+        {currentRelationshipRecord ? (
+          <div className="drawer-stack">
+            <section className="drawer-subsection">
+              <div className="drawer-field-grid">
+                <div>
+                  <h4>Ancestry</h4>
+                  <p>{currentRelationshipRecord.ancestry || 'Unknown'}</p>
+                </div>
+                <div>
+                  <h4>Class</h4>
+                  <p>{currentRelationshipRecord.className || 'Unassigned class'}</p>
+                </div>
+                <div>
+                  <h4>Campaign</h4>
+                  <p>
+                    {currentRelationshipRecord.campaignId
+                      ? campaignLookup.get(currentRelationshipRecord.campaignId) || 'Unknown campaign'
+                      : 'No campaign'}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <EntityRelationshipManager
+              entity={currentRelationshipRecord}
+              entityType="character"
+              relationships={relationships}
+              relationshipTypes={relationshipTypes}
+              entityDirectory={entityDirectory}
+              onCreateRelationship={onCreateRelationship}
+              onDeleteRelationship={onDeleteRelationship}
+              onNavigate={onNavigateEntity}
+              canManage={canManageRelationships}
+            />
+          </div>
+        ) : (
+          <p className="helper-text">Select a character to review their connections.</p>
+        )}
+      </RecordDrawer>
+
       <ConfirmDialog
         open={confirmState.open}
         title="Delete character"
@@ -5772,15 +6230,29 @@ function PlatformAdmin({
   onDeleteRole,
   onSaveCampaign,
   onDeleteCampaign,
-  worlds
+  worlds,
+  locationTypes = [],
+  relationshipTypes = [],
+  onSaveLocationType,
+  onDeleteLocationType,
+  onSaveRelationshipType,
+  onDeleteRelationshipType
 }) {
   const [userDrawer, setUserDrawer] = useState({ open: false, mode: 'create', record: null })
   const [roleDrawer, setRoleDrawer] = useState({ open: false, mode: 'create', record: null })
   const [campaignDrawer, setCampaignDrawer] = useState({ open: false, mode: 'create', record: null })
+  const [locationTypeDrawer, setLocationTypeDrawer] = useState({ open: false, mode: 'create', record: null })
+  const [relationshipTypeDrawer, setRelationshipTypeDrawer] = useState({
+    open: false,
+    mode: 'create',
+    record: null
+  })
 
   const userFormId = 'user-record-form'
   const roleFormId = 'role-record-form'
   const campaignFormId = 'campaign-record-form'
+  const locationTypeFormId = 'location-type-record-form'
+  const relationshipTypeFormId = 'relationship-type-record-form'
 
   const [userForm, setUserForm] = useState({
     displayName: '',
@@ -5797,6 +6269,15 @@ function PlatformAdmin({
     summary: '',
     worldId: worlds[0]?.id ?? '',
     assignments: []
+  })
+  const [locationTypeForm, setLocationTypeForm] = useState({ name: '', description: '' })
+  const [relationshipTypeForm, setRelationshipTypeForm] = useState({
+    name: '',
+    category: '',
+    forwardLabel: '',
+    reverseLabel: '',
+    allowedSources: [],
+    allowedTargets: []
   })
 
   const [confirmState, setConfirmState] = useState({
@@ -5836,6 +6317,27 @@ function PlatformAdmin({
   const campaignRoleOptions = useMemo(
     () => roles.map((role) => ({ id: role.id, name: role.name })),
     [roles]
+  )
+
+  const relationshipEntityLabelMap = useMemo(() => {
+    const map = new Map()
+    RELATIONSHIP_ENTITY_OPTIONS.forEach((option) => {
+      map.set(option.id, option.label)
+    })
+    return map
+  }, [])
+
+  const describeEntityList = useCallback(
+    (values) => {
+      if (!Array.isArray(values) || values.length === 0) {
+        return '—'
+      }
+      return values
+        .map((value) => relationshipEntityLabelMap.get(value) || value)
+        .filter(Boolean)
+        .join(', ')
+    },
+    [relationshipEntityLabelMap]
   )
 
   const closeConfirm = () => {
@@ -5888,6 +6390,24 @@ function PlatformAdmin({
     })
   }
 
+  const handleRequestDeleteLocationType = (typeId) => {
+    const record = locationTypes.find((type) => type.id === typeId)
+    requestDeleteConfirmation({
+      noun: 'location type',
+      detail: record?.name,
+      onConfirm: () => onDeleteLocationType?.(typeId)
+    })
+  }
+
+  const handleRequestDeleteRelationshipType = (typeId) => {
+    const record = relationshipTypes.find((type) => type.id === typeId)
+    requestDeleteConfirmation({
+      noun: 'relationship type',
+      detail: record?.name,
+      onConfirm: () => onDeleteRelationshipType?.(typeId)
+    })
+  }
+
   useEffect(() => {
     if (!userDrawer.open) {
       setUserForm({ displayName: '', email: '', username: '', password: '', roles: [], status: 'Invited' })
@@ -5911,6 +6431,25 @@ function PlatformAdmin({
       })
     }
   }, [campaignDrawer.open, worlds])
+
+  useEffect(() => {
+    if (!locationTypeDrawer.open) {
+      setLocationTypeForm({ name: '', description: '' })
+    }
+  }, [locationTypeDrawer.open])
+
+  useEffect(() => {
+    if (!relationshipTypeDrawer.open) {
+      setRelationshipTypeForm({
+        name: '',
+        category: '',
+        forwardLabel: '',
+        reverseLabel: '',
+        allowedSources: [],
+        allowedTargets: []
+      })
+    }
+  }, [relationshipTypeDrawer.open])
 
   const openCreateUser = () => {
     setUserDrawer({ open: true, mode: 'create', record: null })
@@ -5964,6 +6503,45 @@ function PlatformAdmin({
   const closeUserDrawer = () => setUserDrawer((prev) => ({ ...prev, open: false }))
   const closeRoleDrawer = () => setRoleDrawer((prev) => ({ ...prev, open: false }))
   const closeCampaignDrawer = () => setCampaignDrawer((prev) => ({ ...prev, open: false }))
+  const closeLocationTypeDrawer = () =>
+    setLocationTypeDrawer((prev) => ({ ...prev, open: false }))
+  const closeRelationshipTypeDrawer = () =>
+    setRelationshipTypeDrawer((prev) => ({ ...prev, open: false }))
+
+  const openCreateLocationType = () => {
+    setLocationTypeForm({ name: '', description: '' })
+    setLocationTypeDrawer({ open: true, mode: 'create', record: null })
+  }
+
+  const openEditLocationType = (record) => {
+    setLocationTypeForm({ name: record.name || '', description: record.description || '', id: record.id })
+    setLocationTypeDrawer({ open: true, mode: 'edit', record })
+  }
+
+  const openCreateRelationshipType = () => {
+    setRelationshipTypeForm({
+      name: '',
+      category: '',
+      forwardLabel: '',
+      reverseLabel: '',
+      allowedSources: [],
+      allowedTargets: []
+    })
+    setRelationshipTypeDrawer({ open: true, mode: 'create', record: null })
+  }
+
+  const openEditRelationshipType = (record) => {
+    setRelationshipTypeForm({
+      id: record.id,
+      name: record.name || '',
+      category: record.category || '',
+      forwardLabel: record.forwardLabel || '',
+      reverseLabel: record.reverseLabel || '',
+      allowedSources: Array.isArray(record.allowedSources) ? record.allowedSources : [],
+      allowedTargets: Array.isArray(record.allowedTargets) ? record.allowedTargets : []
+    })
+    setRelationshipTypeDrawer({ open: true, mode: 'edit', record })
+  }
 
   const userColumns = useMemo(
     () => [
@@ -6031,6 +6609,49 @@ function PlatformAdmin({
     [getWorldName]
   )
 
+  const locationTypeColumns = useMemo(
+    () => [
+      { id: 'name', label: 'Location type', accessor: (record) => record.name },
+      {
+        id: 'description',
+        label: 'Description',
+        accessor: (record) => record.description || '—',
+        defaultVisible: false
+      }
+    ],
+    []
+  )
+
+  const relationshipTypeColumns = useMemo(
+    () => [
+      { id: 'name', label: 'Relationship type', accessor: (record) => record.name },
+      { id: 'category', label: 'Category', accessor: (record) => record.category || '—' },
+      {
+        id: 'forwardLabel',
+        label: 'Forward label',
+        accessor: (record) => record.forwardLabel || record.name,
+        defaultVisible: false
+      },
+      {
+        id: 'reverseLabel',
+        label: 'Reverse label',
+        accessor: (record) => record.reverseLabel || record.name,
+        defaultVisible: false
+      },
+      {
+        id: 'sources',
+        label: 'Sources',
+        accessor: (record) => describeEntityList(record.allowedSources)
+      },
+      {
+        id: 'targets',
+        label: 'Targets',
+        accessor: (record) => describeEntityList(record.allowedTargets)
+      }
+    ],
+    [describeEntityList]
+  )
+
   const handleSubmitUser = (event) => {
     event.preventDefault()
     onSaveUser(userForm, userDrawer.mode)
@@ -6050,6 +6671,71 @@ function PlatformAdmin({
       assignments: campaignForm.assignments.filter((assignment) => assignment.userId && assignment.roleId)
     }, campaignDrawer.mode)
     closeCampaignDrawer()
+  }
+
+  const updateRelationshipEntitySelection = (key, optionId, checked) => {
+    setRelationshipTypeForm((prev) => {
+      const current = Array.isArray(prev[key]) ? prev[key] : []
+      const next = checked
+        ? Array.from(new Set([...current, optionId]))
+        : current.filter((value) => value !== optionId)
+      return { ...prev, [key]: next }
+    })
+  }
+
+  const handleSubmitLocationType = (event) => {
+    event.preventDefault()
+    const payload = {
+      name: locationTypeForm.name.trim(),
+      description: (locationTypeForm.description || '').trim()
+    }
+
+    if (!payload.name) {
+      return
+    }
+
+    if (locationTypeDrawer.mode === 'edit') {
+      onSaveLocationType?.({ ...payload, id: locationTypeForm.id }, 'edit')
+    } else {
+      onSaveLocationType?.(payload, 'create')
+    }
+
+    closeLocationTypeDrawer()
+  }
+
+  const handleSubmitRelationshipType = (event) => {
+    event.preventDefault()
+    const payload = {
+      name: relationshipTypeForm.name.trim(),
+      category: (relationshipTypeForm.category || '').trim(),
+      forwardLabel: (relationshipTypeForm.forwardLabel || '').trim(),
+      reverseLabel: (relationshipTypeForm.reverseLabel || '').trim(),
+      allowedSources: Array.isArray(relationshipTypeForm.allowedSources)
+        ? relationshipTypeForm.allowedSources
+        : [],
+      allowedTargets: Array.isArray(relationshipTypeForm.allowedTargets)
+        ? relationshipTypeForm.allowedTargets
+        : []
+    }
+
+    if (!payload.name) {
+      return
+    }
+
+    if (payload.allowedSources.length === 0 || payload.allowedTargets.length === 0) {
+      if (typeof window !== 'undefined') {
+        window.alert('Select at least one source and one target entity type.')
+      }
+      return
+    }
+
+    if (relationshipTypeDrawer.mode === 'edit') {
+      onSaveRelationshipType?.({ ...payload, id: relationshipTypeForm.id }, 'edit')
+    } else {
+      onSaveRelationshipType?.(payload, 'create')
+    }
+
+    closeRelationshipTypeDrawer()
   }
 
   const handleAddCampaignAssignment = () => {
@@ -6133,6 +6819,30 @@ function PlatformAdmin({
           onEdit={permissions.canManageCampaigns ? openEditCampaign : undefined}
           onDelete={permissions.canManageCampaigns ? handleRequestDeleteCampaign : undefined}
           emptyMessage="Launch your first campaign and assemble a party."
+        />
+      )}
+
+      {activeSectionId === 'location-types' && (
+        <StandardListView
+          entityName="Location type"
+          columns={locationTypeColumns}
+          records={locationTypes}
+          onCreate={permissions.canManageLocationTypes ? openCreateLocationType : undefined}
+          onEdit={permissions.canManageLocationTypes ? openEditLocationType : undefined}
+          onDelete={permissions.canManageLocationTypes ? handleRequestDeleteLocationType : undefined}
+          emptyMessage="Define categories to organise your locations."
+        />
+      )}
+
+      {activeSectionId === 'relationship-types' && (
+        <StandardListView
+          entityName="Relationship type"
+          columns={relationshipTypeColumns}
+          records={relationshipTypes}
+          onCreate={permissions.canManageRelationshipTypes ? openCreateRelationshipType : undefined}
+          onEdit={permissions.canManageRelationshipTypes ? openEditRelationshipType : undefined}
+          onDelete={permissions.canManageRelationshipTypes ? handleRequestDeleteRelationshipType : undefined}
+          emptyMessage="Create relationship templates to map entity connections."
         />
       )}
 
@@ -6410,6 +7120,162 @@ function PlatformAdmin({
         </form>
       </RecordDrawer>
 
+      <RecordDrawer
+        open={locationTypeDrawer.open}
+        title={locationTypeDrawer.mode === 'edit' ? 'Edit location type' : 'Create location type'}
+        onClose={closeLocationTypeDrawer}
+        actions={
+          <>
+            <button type="button" className="ghost" onClick={closeLocationTypeDrawer}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" form={locationTypeFormId}>
+              {locationTypeDrawer.mode === 'edit' ? 'Save' : 'Submit'}
+            </button>
+          </>
+        }
+      >
+        <form id={locationTypeFormId} className="drawer-form" onSubmit={handleSubmitLocationType}>
+          <label>
+            <span>Name</span>
+            <input
+              required
+              type="text"
+              value={locationTypeForm.name}
+              onChange={(event) =>
+                setLocationTypeForm((prev) => ({ ...prev, name: event.target.value }))
+              }
+            />
+          </label>
+
+          <label>
+            <span>Description</span>
+            <textarea
+              rows={3}
+              value={locationTypeForm.description}
+              onChange={(event) =>
+                setLocationTypeForm((prev) => ({ ...prev, description: event.target.value }))
+              }
+            />
+          </label>
+        </form>
+      </RecordDrawer>
+
+      <RecordDrawer
+        open={relationshipTypeDrawer.open}
+        title={
+          relationshipTypeDrawer.mode === 'edit'
+            ? 'Edit relationship type'
+            : 'Create relationship type'
+        }
+        onClose={closeRelationshipTypeDrawer}
+        actions={
+          <>
+            <button type="button" className="ghost" onClick={closeRelationshipTypeDrawer}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" form={relationshipTypeFormId}>
+              {relationshipTypeDrawer.mode === 'edit' ? 'Save' : 'Submit'}
+            </button>
+          </>
+        }
+      >
+        <form
+          id={relationshipTypeFormId}
+          className="drawer-form"
+          onSubmit={handleSubmitRelationshipType}
+        >
+          <label>
+            <span>Name</span>
+            <input
+              required
+              type="text"
+              value={relationshipTypeForm.name}
+              onChange={(event) =>
+                setRelationshipTypeForm((prev) => ({ ...prev, name: event.target.value }))
+              }
+            />
+          </label>
+
+          <label>
+            <span>Category</span>
+            <input
+              type="text"
+              value={relationshipTypeForm.category}
+              onChange={(event) =>
+                setRelationshipTypeForm((prev) => ({ ...prev, category: event.target.value }))
+              }
+            />
+          </label>
+
+          <label>
+            <span>Forward label</span>
+            <input
+              type="text"
+              value={relationshipTypeForm.forwardLabel}
+              onChange={(event) =>
+                setRelationshipTypeForm((prev) => ({ ...prev, forwardLabel: event.target.value }))
+              }
+              placeholder="e.g. Mentor of"
+            />
+          </label>
+
+          <label>
+            <span>Reverse label</span>
+            <input
+              type="text"
+              value={relationshipTypeForm.reverseLabel}
+              onChange={(event) =>
+                setRelationshipTypeForm((prev) => ({ ...prev, reverseLabel: event.target.value }))
+              }
+              placeholder="e.g. Mentee of"
+            />
+          </label>
+
+          <fieldset className="roles-fieldset">
+            <legend>Source entities</legend>
+            {RELATIONSHIP_ENTITY_OPTIONS.map((option) => {
+              const fieldId = `relationship-source-${option.id}`
+              return (
+                <label key={option.id} className="checkbox-option" htmlFor={fieldId}>
+                  <input
+                    id={fieldId}
+                    type="checkbox"
+                    checked={relationshipTypeForm.allowedSources.includes(option.id)}
+                    onChange={(event) =>
+                      updateRelationshipEntitySelection('allowedSources', option.id, event.target.checked)
+                    }
+                  />
+                  {option.label}
+                </label>
+              )
+            })}
+            <p className="helper-text">Select all entity types that can initiate this relationship.</p>
+          </fieldset>
+
+          <fieldset className="roles-fieldset">
+            <legend>Target entities</legend>
+            {RELATIONSHIP_ENTITY_OPTIONS.map((option) => {
+              const fieldId = `relationship-target-${option.id}`
+              return (
+                <label key={option.id} className="checkbox-option" htmlFor={fieldId}>
+                  <input
+                    id={fieldId}
+                    type="checkbox"
+                    checked={relationshipTypeForm.allowedTargets.includes(option.id)}
+                    onChange={(event) =>
+                      updateRelationshipEntitySelection('allowedTargets', option.id, event.target.checked)
+                    }
+                  />
+                  {option.label}
+                </label>
+              )
+            })}
+            <p className="helper-text">Select all entity types that can be targeted by this relationship.</p>
+          </fieldset>
+        </form>
+      </RecordDrawer>
+
       <ConfirmDialog
         open={confirmState.open}
         title={confirmState.title}
@@ -6665,7 +7531,7 @@ function EntityRelationshipManager({
   entity,
   entityType,
   relationships,
-  relationshipKinds,
+  relationshipTypes,
   entityDirectory,
   onCreateRelationship,
   onDeleteRelationship,
@@ -6680,48 +7546,48 @@ function EntityRelationshipManager({
   const relationshipOptions = useMemo(() => {
     if (!entity || !entityType) return []
     const options = []
-    relationshipKinds.forEach((kind) => {
-      if (!kind || !kind.id) return
-      const allowedSources = Array.isArray(kind.allowedSources) ? kind.allowedSources : []
-      const allowedTargets = Array.isArray(kind.allowedTargets) ? kind.allowedTargets : []
+    relationshipTypes.forEach((type) => {
+      if (!type || !type.id) return
+      const allowedSources = Array.isArray(type.allowedSources) ? type.allowedSources : []
+      const allowedTargets = Array.isArray(type.allowedTargets) ? type.allowedTargets : []
       const canForward = allowedSources.includes(entityType)
       const canReverse = allowedTargets.includes(entityType)
 
       if (canForward) {
         options.push({
-          key: `${kind.id}:forward`,
-          kindId: kind.id,
+          key: `${type.id}:forward`,
+          typeId: type.id,
           orientation: 'forward',
-          label: kind.forwardLabel || kind.name,
+          label: type.forwardLabel || type.name,
           counterpartTypes: allowedTargets,
-          kindName: kind.name
+          typeName: type.name
         })
       }
 
       const isSymmetric =
         canForward &&
         canReverse &&
-        (kind.forwardLabel || kind.name) === (kind.reverseLabel || kind.name) &&
+        (type.forwardLabel || type.name) === (type.reverseLabel || type.name) &&
         allowedSources.length === allowedTargets.length &&
         allowedSources.every((value) => allowedTargets.includes(value))
 
       if (canReverse && !isSymmetric) {
         options.push({
-          key: `${kind.id}:reverse`,
-          kindId: kind.id,
+          key: `${type.id}:reverse`,
+          typeId: type.id,
           orientation: 'reverse',
-          label: kind.reverseLabel || kind.name,
+          label: type.reverseLabel || type.name,
           counterpartTypes: allowedSources,
-          kindName: kind.name
+          typeName: type.name
         })
       } else if (!canForward && canReverse) {
         options.push({
-          key: `${kind.id}:reverse`,
-          kindId: kind.id,
+          key: `${type.id}:reverse`,
+          typeId: type.id,
           orientation: 'reverse',
-          label: kind.reverseLabel || kind.name,
+          label: type.reverseLabel || type.name,
           counterpartTypes: allowedSources,
-          kindName: kind.name
+          typeName: type.name
         })
       }
     })
@@ -6733,7 +7599,7 @@ function EntityRelationshipManager({
       unique.set(option.key, option)
     })
     return Array.from(unique.values()).sort((a, b) => a.label.localeCompare(b.label))
-  }, [entity, entityType, relationshipKinds])
+  }, [entity, entityType, relationshipTypes])
 
   const relevantRelationships = useMemo(() => {
     if (!entity) return []
@@ -6746,7 +7612,7 @@ function EntityRelationshipManager({
         relationship.target?.type === entityType && relationship.target?.id === entity.id
       if (!isSource && !isTarget) return
 
-      const kind = relationshipKinds.find((candidate) => candidate.id === relationship.kindId)
+      const type = relationshipTypes.find((candidate) => candidate.id === relationship.typeId)
       const orientation = relationship.orientation === 'reverse' ? 'reverse' : 'forward'
       const counterpartRef = isSource ? relationship.target : relationship.source
       const counterpartRegistry = entityDirectory?.[counterpartRef?.type]
@@ -6759,11 +7625,11 @@ function EntityRelationshipManager({
       const typeLabel = counterpartRegistry?.label || 'Entity'
 
       let label = 'Related to'
-      if (kind) {
+      if (type) {
         if (isSource) {
-          label = orientation === 'reverse' ? kind.reverseLabel || kind.name : kind.forwardLabel || kind.name
+          label = orientation === 'reverse' ? type.reverseLabel || type.name : type.forwardLabel || type.name
         } else {
-          label = orientation === 'reverse' ? kind.forwardLabel || kind.name : kind.reverseLabel || kind.name
+          label = orientation === 'reverse' ? type.forwardLabel || type.name : type.reverseLabel || type.name
         }
       }
 
@@ -6771,7 +7637,7 @@ function EntityRelationshipManager({
         id: relationship.id,
         label,
         note: relationship.note || '',
-        kindName: kind?.name || '',
+        typeName: type?.name || '',
         counterpart: {
           type: counterpartRef?.type,
           id: counterpartRef?.id,
@@ -6782,7 +7648,7 @@ function EntityRelationshipManager({
     })
 
     return result.sort((a, b) => a.counterpart.name.localeCompare(b.counterpart.name))
-  }, [entity, entityType, relationships, relationshipKinds, entityDirectory])
+  }, [entity, entityType, relationships, relationshipTypes, entityDirectory])
 
   const counterpartOptions = useMemo(() => {
     if (!entity) return []
@@ -6843,7 +7709,7 @@ function EntityRelationshipManager({
     }
 
     const duplicate = relationships.some((relationship) => {
-      if (relationship.kindId !== option.kindId) return false
+      if (relationship.typeId !== option.typeId) return false
       const matchForward =
         relationship.source?.type === entityType &&
         relationship.source?.id === entity.id &&
@@ -6863,7 +7729,7 @@ function EntityRelationshipManager({
     }
 
     onCreateRelationship?.({
-      kindId: option.kindId,
+      typeId: option.typeId,
       orientation: option.orientation,
       source: { type: entityType, id: entity.id },
       target: { type: targetType, id: targetId },
@@ -6908,9 +7774,9 @@ function EntityRelationshipManager({
               </div>
               <div className="relationship-entry__meta">
                 <span className="relationship-entry__tag">{entry.counterpart?.typeLabel || 'Entity'}</span>
-                {entry.kindName && (
+                {entry.typeName && (
                   <span className="relationship-entry__tag relationship-entry__tag--muted">
-                    {entry.kindName}
+                    {entry.typeName}
                   </span>
                 )}
                 {canManage && onDeleteRelationship && (
