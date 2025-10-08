@@ -1,22 +1,36 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api').replace(/\/$/, '')
+
 export default function WorldsPage() {
-  const { currentUser } = useAuth()
+  const { currentUser, token } = useAuth()
   const [worlds, setWorlds] = useState([])
+  const apiUrl = useMemo(() => `${API_BASE_URL}/worlds`, [])
 
   useEffect(() => {
     async function loadWorlds() {
       try {
-        const res = await fetch('/api/worlds')
+        const res = await fetch(apiUrl, {
+          headers: token
+            ? {
+                Authorization: `Bearer ${token}`,
+              }
+            : undefined,
+        })
+        if (!res.ok) {
+          throw new Error(`Request failed with status ${res.status}`)
+        }
         const data = await res.json()
         if (data.success) setWorlds(data.data)
       } catch (err) {
         console.error('Failed to load worlds', err)
       }
     }
-    loadWorlds()
-  }, [])
+    if (token) {
+      loadWorlds()
+    }
+  }, [apiUrl, token])
 
   return (
     <div>
