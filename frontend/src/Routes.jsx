@@ -9,7 +9,6 @@ import OrganisationsLedger from './pages/OrganisationsLedger'
 import RaceLibrary from './pages/RaceLibrary'
 import PlatformAdmin from './pages/PlatformAdmin'
 import ProfilePage from './pages/ProfilePage'
-import LoginPage from './pages/LoginPage'
 
 export default function AppRoutes() {
   return (
@@ -25,7 +24,6 @@ export default function AppRoutes() {
       <Route path="/races" element={<RaceLibrary />} />
       <Route path="/admin" element={<PlatformAdmin />} />
       <Route path="/profile" element={<ProfilePage />} />
-      <Route path="/login" element={<LoginPage />} />
     </Routes>
   )
 }
