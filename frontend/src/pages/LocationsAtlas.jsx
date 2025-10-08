@@ -75,6 +75,8 @@ export default function LocationsAtlas() {
     worldsError,
     activeWorldId,
     setActiveWorldId,
+    activeCampaignId,
+    activeCharacterId,
   } = useData()
 
   const [locations, setLocations] = useState([])
@@ -84,6 +86,8 @@ export default function LocationsAtlas() {
   useEffect(() => {
     if (!activeWorldId) {
       setLocations([])
+      setLoading(false)
+      setError(null)
       return
     }
 
@@ -93,7 +97,11 @@ export default function LocationsAtlas() {
 
     api
       .get('/locations', {
-        context: { worldId: activeWorldId },
+        context: {
+          worldId: activeWorldId,
+          campaignId: activeCampaignId,
+          characterId: activeCharacterId,
+        },
         signal: controller.signal,
       })
       .then((data) => {
@@ -113,7 +121,7 @@ export default function LocationsAtlas() {
       })
 
     return () => controller.abort()
-  }, [api, activeWorldId])
+  }, [api, activeWorldId, activeCampaignId, activeCharacterId])
 
   const activeWorldName = useMemo(() => {
     if (!activeWorldId) return null

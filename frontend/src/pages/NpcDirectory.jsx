@@ -80,6 +80,8 @@ export default function NpcDirectory() {
     worldsError,
     activeWorldId,
     setActiveWorldId,
+    activeCampaignId,
+    activeCharacterId,
   } = useData()
 
   const [npcs, setNpcs] = useState([])
@@ -89,6 +91,8 @@ export default function NpcDirectory() {
   useEffect(() => {
     if (!activeWorldId) {
       setNpcs([])
+      setLoading(false)
+      setError(null)
       return
     }
 
@@ -98,7 +102,11 @@ export default function NpcDirectory() {
 
     api
       .get('/npcs', {
-        context: { worldId: activeWorldId },
+        context: {
+          worldId: activeWorldId,
+          campaignId: activeCampaignId,
+          characterId: activeCharacterId,
+        },
         signal: controller.signal,
       })
       .then((data) => {
@@ -118,7 +126,7 @@ export default function NpcDirectory() {
       })
 
     return () => controller.abort()
-  }, [api, activeWorldId])
+  }, [api, activeWorldId, activeCampaignId, activeCharacterId])
 
   const activeWorldName = useMemo(() => {
     if (!activeWorldId) return null

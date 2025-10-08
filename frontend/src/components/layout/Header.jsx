@@ -23,7 +23,17 @@ export default function Header({
   onRequestCollapseToggle,
 }) {
   const { currentUser, logout } = useAuth()
-  const { campaigns = [], characters = [] } = useData()
+  const {
+    worlds = [],
+    activeWorldId,
+    setActiveWorldId,
+    campaigns = [],
+    activeCampaignId,
+    setActiveCampaignId,
+    characters = [],
+    activeCharacterId,
+    setActiveCharacterId,
+  } = useData()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const menuRef = useRef(null)
 
@@ -66,6 +76,13 @@ export default function Header({
 
   const collapseLabel = isSidebarCollapsed ? 'Expand menu' : 'Collapse menu'
   const collapseIcon = isSidebarCollapsed ? '⤢' : '⤡'
+  const contextSelectStyle = {
+    backgroundColor: '#1f2937',
+    color: '#f8fafc',
+    borderRadius: '0.65rem',
+    border: '1px solid rgba(148, 163, 184, 0.45)',
+    padding: '0.35rem 0.75rem',
+  }
 
   return (
     <header className="app-header">
@@ -107,13 +124,55 @@ export default function Header({
           )}
 
           <div className="context-switchers" aria-live="polite">
-            <div className="context-select">
-              <span>Campaigns</span>
-              <strong>{campaigns.length}</strong>
-            </div>
-            <div className="context-select">
-              <span>Characters</span>
-              <strong>{characters.length}</strong>
+            {worlds.length > 0 && (
+              <select
+                value={activeWorldId || ''}
+                onChange={(event) => setActiveWorldId(event.target.value || null)}
+                className="bg-gray-700 text-white rounded p-1"
+                style={contextSelectStyle}
+                aria-label="Select world context"
+              >
+                <option value="">Select World</option>
+                {worlds.map((world) => (
+                  <option key={world.id} value={world.id}>
+                    {world.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <div className="flex space-x-2 items-center">
+              {campaigns.length > 0 && (
+                <select
+                  value={activeCampaignId || ''}
+                  onChange={(e) => setActiveCampaignId(e.target.value || null)}
+                  className="bg-gray-700 text-white rounded p-1"
+                  style={contextSelectStyle}
+                  aria-label="Select campaign context"
+                >
+                  <option value="">Select Campaign</option>
+                  {campaigns.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {characters.length > 0 && (
+                <select
+                  value={activeCharacterId || ''}
+                  onChange={(e) => setActiveCharacterId(e.target.value || null)}
+                  className="bg-gray-700 text-white rounded p-1"
+                  style={contextSelectStyle}
+                  aria-label="Select character context"
+                >
+                  <option value="">Select Character</option>
+                  {characters.map((ch) => (
+                    <option key={ch.id} value={ch.id}>
+                      {ch.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 
