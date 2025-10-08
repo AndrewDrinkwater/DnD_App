@@ -6,16 +6,25 @@ export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    if (!username) {
-      setError('Please enter a username')
+    if (!username.trim() || !password) {
+      setError('Please enter a username and password')
       return
     }
 
-    const user = { username, roles: ['Adventurer'] }
-    login(user)
+    setError(null)
+    setIsSubmitting(true)
+
+    try {
+      await login({ username, password })
+    } catch (loginError) {
+      setError(loginError.message || 'Unable to sign in')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -42,9 +51,10 @@ export default function LoginPage() {
         {error && <p className="text-red-400 text-sm">{error}</p>}
         <button
           type="submit"
-          className="bg-blue-600 hover:bg-blue-500 rounded py-2 font-semibold"
+          className="bg-blue-600 hover:bg-blue-500 rounded py-2 font-semibold disabled:opacity-70 disabled:cursor-not-allowed"
+          disabled={isSubmitting}
         >
-          Login
+          {isSubmitting ? 'Signing in…' : 'Login'}
         </button>
       </form>
     </div>
