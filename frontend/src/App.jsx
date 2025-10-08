@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { readStoredState, writeStoredState } from './utils/storage'
 import { newId } from './utils/idGenerator'
 import { AuthProvider } from './context/AuthContext'
 import { DataProvider } from './context/DataContext'
+import AppLayout from './components/layout/AppLayout'
 import {
   seededRoles,
   seededUsers,
@@ -2874,8 +2875,6 @@ function AppContent() {
     if (typeof window === 'undefined') return '/'
     return normalizePath(window.location.pathname || '/')
   })
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
-
   const currentPathRef = useRef(currentPath)
 
   const [roles, setRoles] = useState(() => (Array.isArray(storedState?.roles) ? storedState.roles : seededRoles))
@@ -2929,18 +2928,7 @@ function AppContent() {
     organisationId: null,
     locationId: null
   })
-  const [sidebarPinned, setSidebarPinned] = useState(() => {
-    if (storedState?.ui && typeof storedState.ui === 'object') {
-      const value = storedState.ui.sidebarPinned
-      if (typeof value === 'boolean') return value
-    }
-    return true
-  })
-  const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false)
-  const [sidebarHovered, setSidebarHovered] = useState(false)
   const [authError, setAuthError] = useState(null)
-  const headerRef = useRef(null)
-  const profileMenuRef = useRef(null)
   const authenticatedUserId = session?.authenticatedUserId ?? null
 
   useEffect(() => {
@@ -3415,7 +3403,6 @@ function AppContent() {
       setSession({ authenticatedUserId: null })
       setActiveSectionId('users')
       setAuthError('Your account is no longer available. Please sign in again.')
-      setProfileMenuOpen(false)
       setAppContext({ campaignId: '', characterId: '' })
       navigate('/', { replace: true })
     }
@@ -3450,8 +3437,7 @@ function AppContent() {
       relationships,
       races,
       session,
-      appContext,
-      ui: { sidebarPinned }
+      appContext
     })
   }, [
     users,
@@ -3467,35 +3453,8 @@ function AppContent() {
     relationships,
     races,
     session,
-    appContext,
-    sidebarPinned
+    appContext
   ])
-
-  useLayoutEffect(() => {
-    if (typeof window === 'undefined') return undefined
-
-    const headerElement = headerRef.current
-    if (!headerElement) return undefined
-
-    const updateHeaderHeight = () => {
-      if (!headerRef.current) return
-      const { height } = headerRef.current.getBoundingClientRect()
-      document.documentElement.style.setProperty('--app-header-height', `${height}px`)
-    }
-
-    updateHeaderHeight()
-
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(updateHeaderHeight)
-      observer.observe(headerElement)
-      return () => observer.disconnect()
-    }
-
-    window.addEventListener('resize', updateHeaderHeight)
-    return () => {
-      window.removeEventListener('resize', updateHeaderHeight)
-    }
-  }, [])
 
   const sidebarModules = useMemo(
     () =>
@@ -3555,40 +3514,11 @@ function AppContent() {
     }
   }, [currentPath, activeModuleId, sidebarModules, navigate])
 
-  useEffect(() => {
-    if (!profileMenuOpen) return undefined
-    const handlePointer = (event) => {
-      if (!profileMenuRef.current) return
-      if (profileMenuRef.current.contains(event.target)) return
-      setProfileMenuOpen(false)
-    }
-    const handleKey = (event) => {
-      if (event.key === 'Escape') {
-        setProfileMenuOpen(false)
-      }
-    }
-    window.addEventListener('mousedown', handlePointer)
-    window.addEventListener('touchstart', handlePointer)
-    window.addEventListener('keydown', handleKey)
-    return () => {
-      window.removeEventListener('mousedown', handlePointer)
-      window.removeEventListener('touchstart', handlePointer)
-      window.removeEventListener('keydown', handleKey)
-    }
-  }, [profileMenuOpen])
-
-  useEffect(() => {
-    setProfileMenuOpen(false)
-  }, [currentPath])
-
   const handleLogout = () => {
     setSession({ authenticatedUserId: null })
     setActiveSectionId('users')
     setAuthError('You have been signed out. Sign in again to continue.')
     setAppContext({ campaignId: '', characterId: '' })
-    setSidebarMobileOpen(false)
-    setSidebarHovered(false)
-    setProfileMenuOpen(false)
     navigate('/', { replace: true })
   }
 
@@ -3615,36 +3545,10 @@ function AppContent() {
 
     setSession({ authenticatedUserId: matchedUser.id })
     setActiveSectionId('users')
-    setProfileMenuOpen(false)
     setAuthError(null)
-    setSidebarMobileOpen(false)
     navigate('/', { replace: true })
     return true
   }
-
-  const handleSidebarMouseEnter = () => {
-    if (!sidebarPinned && !sidebarMobileOpen) {
-      setSidebarHovered(true)
-    }
-  }
-
-  const handleSidebarMouseLeave = () => {
-    if (!sidebarPinned) {
-      setSidebarHovered(false)
-    }
-  }
-
-  const isSidebarCollapsed = !sidebarPinned && !sidebarMobileOpen && !sidebarHovered
-  const sidebarClassName = [
-    'shell-sidebar',
-    isSidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded',
-    sidebarPinned ? 'sidebar-pinned' : 'sidebar-floating',
-    sidebarMobileOpen ? 'sidebar-mobile-open' : ''
-  ]
-    .filter(Boolean)
-    .join(' ')
-  const showSidebarBackdrop = sidebarMobileOpen
-  const showSidebarPinToggle = sidebarPinned || sidebarHovered || sidebarMobileOpen
 
   const updateUsersWithRoleRemoval = (roleId) => {
     setUsers((prev) =>
@@ -4425,223 +4329,9 @@ function AppContent() {
   }
 
   return (
-    <div className="app-shell">
-      <header ref={headerRef} className="app-header">
-        <div className="header-bar">
-          <div className="brand-identity">
-            <button
-              type="button"
-              className="brand-home-link"
-              onClick={() => {
-                setSidebarMobileOpen(false)
-                setProfileMenuOpen(false)
-                navigate('/')
-              }}
-              aria-label="Go to home"
-            >
-              <span className="brand-title">DND Shared Space</span>
-            </button>
-          </div>
-          <div className="header-actions">
-            <div className="context-switchers" aria-label="Active context selection">
-              <label className="context-select">
-                <span>Campaign</span>
-                <select
-                  value={appContext.campaignId}
-                  onChange={(event) => {
-                    const nextCampaign = event.target.value
-                    setAppContext((prev) => ({
-                      campaignId: nextCampaign,
-                      characterId:
-                        nextCampaign === '' || nextCampaign !== prev.campaignId
-                          ? ''
-                          : prev.characterId
-                    }))
-                  }}
-                >
-                  <option value="">No campaign selected</option>
-                  {accessibleCampaigns.map((campaign) => (
-                    <option key={campaign.id} value={campaign.id}>
-                      {campaign.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="context-select">
-                <span>Character</span>
-                <select
-                  value={appContext.characterId}
-                  onChange={(event) => {
-                    const nextCharacterId = event.target.value
-                    if (!nextCharacterId) {
-                      setAppContext((prev) => ({ ...prev, characterId: '', campaignId: prev.campaignId }))
-                      return
-                    }
-                    const selectedCharacter = myCharacters.find(
-                      (character) => character.id === nextCharacterId
-                    )
-                    setAppContext({
-                      characterId: nextCharacterId,
-                      campaignId: selectedCharacter?.campaignId || ''
-                    })
-                  }}
-                >
-                  <option value="">No character selected</option>
-                  {myCharacters.map((character) => (
-                    <option key={character.id} value={character.id}>
-                      {character.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="current-user-menu" ref={profileMenuRef}>
-              <button
-                type="button"
-                className="current-user-button"
-                onClick={() => {
-                  setProfileMenuOpen((prev) => !prev)
-                  setSidebarMobileOpen(false)
-                }}
-                aria-haspopup="menu"
-                aria-expanded={profileMenuOpen}
-                aria-label="Open profile menu"
-              >
-                <span className="user-avatar" aria-hidden="true">
-                  {currentUserInitials}
-                </span>
-                <span className="user-meta">
-                  <span className="user-name">{currentUserDisplayName}</span>
-                  <span className="user-role">{currentUserRoleNames.join(', ')}</span>
-                </span>
-              </button>
-              {profileMenuOpen && (
-                <div className="profile-dropdown" role="menu">
-                  <div className="profile-overview">
-                    <span className="profile-overview-name">{currentUserDisplayName}</span>
-                    <span className="profile-overview-role">{currentUserRoleNames.join(', ')}</span>
-                    <span className="profile-overview-email">{currentUserEmail}</span>
-                  </div>
-                  <div className="profile-overview-status">
-                    <span className="status-pill">{currentUserStatus}</span>
-                    <span className="profile-overview-title">{currentUserTitle}</span>
-                  </div>
-                  <div className="profile-actions">
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={() => {
-                        setProfileMenuOpen(false)
-                        navigate('/profile')
-                      }}
-                    >
-                      Edit profile
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost destructive"
-                      onClick={handleLogout}
-                    >
-                      Log out
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="app-body">
-        <aside
-          className={sidebarClassName}
-          onMouseEnter={handleSidebarMouseEnter}
-          onMouseLeave={handleSidebarMouseLeave}
-          aria-label="Primary navigation sidebar"
-        >
-          <button
-            type="button"
-            className="icon-button sidebar-close"
-            onClick={() => setSidebarMobileOpen(false)}
-            aria-label="Close navigation"
-            title="Close navigation"
-          >
-            ×
-          </button>
-          <nav className="sidebar-nav" aria-label="Primary navigation">
-            {showSidebarPinToggle && (
-              <button
-                type="button"
-                className={`sidebar-pin-inline sidebar-pin-toggle${sidebarPinned ? ' active' : ''}`}
-                onClick={() => setSidebarPinned((prev) => !prev)}
-                aria-pressed={sidebarPinned}
-                aria-label={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
-                title={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
-              >
-                <span className="sidebar-pin-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path
-                      d="M8 4H16L15.25 9H18L12 15L6 9H8.75Z"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      stroke="currentColor"
-                      fill="none"
-                    />
-                    <path
-                      d="M12 15V21"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      stroke="currentColor"
-                      fill="none"
-                    />
-                  </svg>
-                </span>
-                {!isSidebarCollapsed && <span className="sidebar-pin-label">Pin menu</span>}
-              </button>
-            )}
-            {sidebarModules.length === 0 && <p className="sidebar-empty">No modules available for your role.</p>}
-            {sidebarModules.map((module) => {
-              const isActive = module.id === activeModuleId
-              const moduleInitial = module.label.charAt(0).toUpperCase()
-              return (
-                <button
-                  key={module.id}
-                  className={`sidebar-link${isActive ? ' active' : ''}`}
-                  type="button"
-                  aria-current={isActive ? 'page' : undefined}
-                  aria-label={module.label}
-                  title={isSidebarCollapsed ? module.label : undefined}
-                  onClick={() => {
-                    setProfileMenuOpen(false)
-                    setSidebarMobileOpen(false)
-                    navigate(module.path)
-                  }}
-                >
-                  <span className="sidebar-icon" aria-hidden="true">
-                    {moduleInitial}
-                  </span>
-                  <span className="sidebar-label">{module.label}</span>
-                </button>
-              )
-            })}
-          </nav>
-        </aside>
-        {showSidebarBackdrop && (
-          <button
-            type="button"
-            className="sidebar-backdrop"
-            onClick={() => setSidebarMobileOpen(false)}
-            aria-label="Close navigation"
-          />
-        )}
-
-        <div className="shell-main">
-          <main className="module-content">{mainContent}</main>
-        </div>
-      </div>
-    </div>
+    <AppLayout>
+      <div className="module-content">{mainContent}</div>
+    </AppLayout>
   )
 }
 
