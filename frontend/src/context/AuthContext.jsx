@@ -49,6 +49,28 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (credentials) => {
     const authenticatedSession = await authenticate(credentials)
+    if (authenticatedSession?.user) {
+      const u = authenticatedSession.user
+      u.name = u.displayName || u.username
+      u.initials = (u.name || 'G')
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+      u.status = u.active ? 'Active' : 'Inactive'
+      if (Array.isArray(u.roles) && u.roles.length) {
+        const roleMap = {
+          'role-system-admin': 'System Administrator',
+          'role-world-admin': 'World Admin',
+          'role-dm': 'Dungeon Master',
+          'role-player': 'Adventurer',
+        }
+        u.roleNames = u.roles.map((r) => roleMap[r] || r)
+      } else if (!u.roleNames) {
+        u.roleNames = ['Adventurer']
+      }
+    }
     setSession(authenticatedSession)
     return authenticatedSession
   }, [])

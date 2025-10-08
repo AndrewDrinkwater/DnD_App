@@ -1,20 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import Header from './Header'
 import Sidebar from './Sidebar'
 
-const defaultBrand = {
-  initials: 'DD',
-  title: 'D&D Shared Space',
-  subtitle: 'Collaborative command centre',
-}
-
-export default function AppLayout({
-  children,
-  sidebarModules = [],
-  headerProps = {},
-  brand: providedBrand,
-}) {
-  const brand = useMemo(() => ({ ...defaultBrand, ...providedBrand }), [providedBrand])
+export default function AppLayout({ children }) {
   const headerRef = useRef(null)
 
   useEffect(() => {
@@ -35,9 +23,11 @@ export default function AppLayout({
   return (
     <div className="app-shell">
       <div className="app-body">
-        <Sidebar modules={sidebarModules} brand={brand} />
+        <Sidebar />
         <div className="shell-main">
-          <Header ref={headerRef} brand={brand} {...headerProps} />
+          <div ref={headerRef}>
+            <Header />
+          </div>
           <main className="module-content">{children}</main>
         </div>
       </div>

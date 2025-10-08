@@ -1,39 +1,20 @@
-import { createContext, useContext, useMemo } from 'react'
-
-const sidebarModules = [
-  { id: 'world', label: 'Worlds', path: '/worlds', exact: true },
-  { id: 'campaigns', label: 'Campaigns', path: '/campaigns' },
-  { id: 'characters', label: 'Characters', path: '/characters' },
-  { id: 'npcs', label: 'NPC Directory', path: '/npcs' },
-  { id: 'locations', label: 'Locations', path: '/locations' },
-  { id: 'organisations', label: 'Organisations', path: '/organisations' },
-  { id: 'races', label: 'Races', path: '/races' },
-  { id: 'platform-admin', label: 'Admin', path: '/admin' },
-]
-
-const defaultBrand = {
-  initials: 'DD',
-  title: 'D&D Shared Space',
-  subtitle: 'Collaborative command centre',
-}
+import { createContext, useContext, useMemo, useState } from 'react'
 
 const DataContext = createContext({
-  sidebarModules,
-  brand: defaultBrand,
-  headerProps: {},
+  campaigns: [],
+  characters: [],
 })
 
 export function DataProvider({ children }) {
+  const [campaigns] = useState([])
+  const [characters] = useState([])
+
   const value = useMemo(
     () => ({
-      sidebarModules,
-      brand: defaultBrand,
-      headerProps: {
-        showCampaignSelector: false,
-        showCharacterSelector: false,
-      },
+      campaigns,
+      characters,
     }),
-    [],
+    [campaigns, characters],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

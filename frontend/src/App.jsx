@@ -3,19 +3,12 @@ import { BrowserRouter } from 'react-router-dom'
 import AppRoutes from './Routes'
 import AppLayout from './components/layout/AppLayout'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { DataProvider, useData } from './context/DataContext'
+import { DataProvider } from './context/DataContext'
 import LoginPage from './pages/LoginPage'
 
 function AuthenticatedApp() {
-  const { currentUser, logout } = useAuth()
-  const { sidebarModules, brand, headerProps } = useData()
-
   return (
-    <AppLayout
-      sidebarModules={sidebarModules}
-      brand={brand}
-      headerProps={{ ...headerProps, currentUser, onLogout: logout }}
-    >
+    <AppLayout>
       <AppRoutes />
     </AppLayout>
   )
