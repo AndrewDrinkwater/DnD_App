@@ -1,4 +1,5 @@
-import { Fragment, forwardRef, useEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 const classNames = (...values) => values.filter(Boolean).join(' ')
 
@@ -37,9 +38,9 @@ const Header = forwardRef(function Header(
     currentUser = {},
     capabilityBadges = [],
     onLogout,
-    isWorldBuilder = false
+    isWorldBuilder = false,
   },
-  ref
+  ref,
 ) {
   const [menuOpen, setMenuOpen] = useState(false)
   const dropdownRef = useRef(null)
@@ -55,9 +56,9 @@ const Header = forwardRef(function Header(
       roleNames: [],
       preferences: {},
       isAuthenticated: false,
-      ...currentUser
+      ...currentUser,
     }),
-    [currentUser]
+    [currentUser],
   )
 
   const displayCampaignSelector =
@@ -66,7 +67,7 @@ const Header = forwardRef(function Header(
     showCharacterSelector && (characterOptions.length > 0 || selectedCharacterId)
 
   useEffect(() => {
-    if (!menuOpen) return
+    if (!menuOpen) return undefined
 
     const handlePointerDown = (event) => {
       if (!dropdownRef.current || !triggerRef.current) return
@@ -113,8 +114,8 @@ const Header = forwardRef(function Header(
     <header ref={ref} className="app-header">
       <div className="header-bar">
         <div className="brand-identity">
-          <button
-            type="button"
+          <Link
+            to="/"
             className="brand-home-link"
             onClick={onNavigateHome}
           >
@@ -127,7 +128,7 @@ const Header = forwardRef(function Header(
                 <span className="brand-subtitle">{brand.subtitle}</span>
               ) : null}
             </span>
-          </button>
+          </Link>
         </div>
 
         <div className="header-actions">
@@ -198,74 +199,35 @@ const Header = forwardRef(function Header(
                 <div className="profile-overview">
                   <span className="profile-overview-name">{safeUser.name}</span>
                   <span className="profile-overview-role">{safeUser.title}</span>
-                  {safeUser.email && safeUser.email !== '—' ? (
-                    <span className="profile-overview-email">{safeUser.email}</span>
-                  ) : null}
-                  <span className="profile-overview-status">
-                    <span
-                      className={classNames('status-badge', statusClass)}
-                    >
-                      {safeUser.status}
-                    </span>
+                  <span className="profile-overview-email">{safeUser.email}</span>
+                  <span className={classNames('profile-status', statusClass)}>
+                    {safeUser.status}
                   </span>
                 </div>
 
+                <div className="profile-actions">
+                  <Link
+                    to="/profile"
+                    className="profile-link"
+                    onClick={handleNavigateProfile}
+                  >
+                    View profile
+                  </Link>
+                  <button type="button" className="ghost" onClick={handleLogout}>
+                    Sign out
+                  </button>
+                </div>
+
                 {capabilityBadges.length > 0 && (
-                  <div className="profile-overview">
-                    <span className="profile-overview-title">
-                      Platform capabilities
-                    </span>
-                    <ul className="profile-role-list">
+                  <div className="capability-badges">
+                    <span>Capabilities</span>
+                    <ul>
                       {capabilityBadges.map((capability) => (
                         <li key={capability}>{formatCapability(capability)}</li>
                       ))}
                     </ul>
                   </div>
                 )}
-
-                {safeUser.roleNames && safeUser.roleNames.length > 0 && (
-                  <div className="profile-overview">
-                    <span className="profile-overview-title">Campaign roles</span>
-                    <ul className="profile-role-list">
-                      {safeUser.roleNames.map((role) => (
-                        <li key={role}>{role}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {safeUser.preferences && Object.keys(safeUser.preferences).length > 0 && (
-                  <div className="profile-overview">
-                    <span className="profile-overview-title">Preferences</span>
-                    <dl className="profile-preferences">
-                      {Object.entries(safeUser.preferences).map(([key, value]) => (
-                        <Fragment key={key}>
-                          <dt>{key}</dt>
-                          <dd>{value}</dd>
-                        </Fragment>
-                      ))}
-                    </dl>
-                  </div>
-                )}
-
-                <div className="profile-actions">
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={handleNavigateProfile}
-                  >
-                    View profile
-                  </button>
-                  {safeUser.isAuthenticated && (
-                    <button
-                      type="button"
-                      className="primary"
-                      onClick={handleLogout}
-                    >
-                      Log out
-                    </button>
-                  )}
-                </div>
               </div>
             )}
           </div>

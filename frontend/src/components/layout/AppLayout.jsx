@@ -5,16 +5,14 @@ import Sidebar from './Sidebar'
 const defaultBrand = {
   initials: 'DD',
   title: 'D&D Shared Space',
-  subtitle: 'Collaborative command centre'
+  subtitle: 'Collaborative command centre',
 }
 
 export default function AppLayout({
   children,
   sidebarModules = [],
-  activeModuleId = null,
-  onSelectModule,
   headerProps = {},
-  brand: providedBrand
+  brand: providedBrand,
 }) {
   const brand = useMemo(() => ({ ...defaultBrand, ...providedBrand }), [providedBrand])
   const headerRef = useRef(null)
@@ -37,12 +35,7 @@ export default function AppLayout({
   return (
     <div className="app-shell">
       <div className="app-body">
-        <Sidebar
-          modules={sidebarModules}
-          activeModuleId={activeModuleId}
-          onSelectModule={onSelectModule}
-          brand={brand}
-        />
+        <Sidebar modules={sidebarModules} brand={brand} />
         <div className="shell-main">
           <Header ref={headerRef} brand={brand} {...headerProps} />
           <main className="module-content">{children}</main>

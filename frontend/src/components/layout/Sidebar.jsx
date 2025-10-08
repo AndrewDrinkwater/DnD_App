@@ -1,3 +1,5 @@
+import { NavLink } from 'react-router-dom'
+
 const classNames = (...values) => values.filter(Boolean).join(' ')
 
 const moduleIcons = {
@@ -8,20 +10,10 @@ const moduleIcons = {
   locations: '📍',
   organisations: '🏰',
   races: '🧬',
-  'platform-admin': '🛡️'
+  'platform-admin': '🛡️',
 }
 
-export default function Sidebar({
-  modules = [],
-  activeModuleId = null,
-  onSelectModule,
-  brand
-}) {
-  const handleSelect = (path) => {
-    if (!path) return
-    onSelectModule?.(path)
-  }
-
+export default function Sidebar({ modules = [], brand }) {
   return (
     <aside className="shell-sidebar" aria-label="Primary navigation">
       <div className="sidebar-brand">
@@ -42,19 +34,19 @@ export default function Sidebar({
         ) : (
           modules.map((module) => {
             const icon = moduleIcons[module.id] ?? '•'
-            const isActive = module.id === activeModuleId
+
             return (
-              <button
+              <NavLink
                 key={module.id}
-                type="button"
-                className={classNames('sidebar-link', isActive && 'active')}
-                onClick={() => handleSelect(module.path)}
+                to={module.path}
+                end={module.exact}
+                className={({ isActive }) => classNames('sidebar-link', isActive && 'active')}
               >
                 <span className="sidebar-icon" aria-hidden="true">
                   {icon}
                 </span>
                 <span className="sidebar-label">{module.label}</span>
-              </button>
+              </NavLink>
             )
           })
         )}
