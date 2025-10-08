@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useApiClient } from '../utils/apiClient'
+import { useData } from '../context/DataContext'
 
 const tableStyle = {
   width: '100%',
@@ -30,17 +31,32 @@ const cellStyle = {
 
 export default function CharactersPage() {
   const api = useApiClient()
+  const { activeWorldId, activeCampaignId, activeCharacterId } = useData()
   const [characters, setCharacters] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    if (!activeWorldId) {
+      setCharacters([])
+      setLoading(false)
+      setError(null)
+      return undefined
+    }
+
     const controller = new AbortController()
     setLoading(true)
     setError(null)
 
     api
-      .get('/characters', { signal: controller.signal })
+      .get('/characters', {
+        signal: controller.signal,
+        context: {
+          worldId: activeWorldId,
+          campaignId: activeCampaignId,
+          characterId: activeCharacterId,
+        },
+      })
       .then((data) => {
         if (controller.signal.aborted) return
         setCharacters(Array.isArray(data) ? data : [])
@@ -58,7 +74,7 @@ export default function CharactersPage() {
       })
 
     return () => controller.abort()
-  }, [api])
+  }, [api, activeWorldId, activeCampaignId, activeCharacterId])
 
   return (
     <section>
