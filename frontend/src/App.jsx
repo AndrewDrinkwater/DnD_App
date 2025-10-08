@@ -876,6 +876,253 @@ function HomePage({ onEnterWorkspace }) {
   )
 }
 
+function ReferenceField({
+  id,
+  label,
+  options = [],
+  valueId = '',
+  onValueChange,
+  onSelect,
+  placeholder = 'Search records',
+  disabled = false,
+  helperText,
+  emptyMessage = 'No options available.',
+  noMatchesMessage = 'No matches found.',
+  allowClear = true,
+  clearOnSelect = false,
+  className = ''
+}) {
+  const fieldId = useMemo(() => id || newId('reference-field'), [id])
+  const listboxId = `${fieldId}-list`
+  const labelId = label ? `${fieldId}-label` : undefined
+  const inputRef = useRef(null)
+  const blurTimeoutRef = useRef(null)
+  const previousValueRef = useRef(valueId ?? '')
+
+  useEffect(() => {
+    return () => {
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const normalizedOptions = useMemo(
+    () =>
+      options
+        .filter((option) => option && option.id)
+        .map((option) => ({
+          ...option,
+          label: option.label ?? option.name ?? option.id
+        })),
+    [options]
+  )
+
+  const selectedOption = useMemo(() => {
+    if (!valueId) return null
+    return normalizedOptions.find((option) => option.id === valueId) || null
+  }, [normalizedOptions, valueId])
+
+  const [inputValue, setInputValue] = useState(() => selectedOption?.label || '')
+  const [isOpen, setIsOpen] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(0)
+
+  useEffect(() => {
+    if (valueId === undefined) return
+    const normalizedValue = valueId || ''
+    if (previousValueRef.current === normalizedValue) {
+      if (normalizedValue && selectedOption) {
+        setInputValue(selectedOption.label)
+      }
+      return
+    }
+    previousValueRef.current = normalizedValue
+    if (normalizedValue && selectedOption) {
+      setInputValue(selectedOption.label)
+    } else if (!normalizedValue) {
+      setInputValue('')
+    }
+  }, [valueId, selectedOption])
+
+  useEffect(() => {
+    if (!isOpen) {
+      setHighlightedIndex(0)
+    } else if (highlightedIndex >= normalizedOptions.length) {
+      setHighlightedIndex(0)
+    }
+  }, [isOpen, normalizedOptions.length, highlightedIndex])
+
+  const filteredOptions = useMemo(() => {
+    const query = inputValue.trim().toLowerCase()
+    if (!query) return normalizedOptions
+    return normalizedOptions.filter((option) => option.label.toLowerCase().includes(query))
+  }, [normalizedOptions, inputValue])
+
+  const canClear = allowClear && !disabled && Boolean(valueId)
+  const resolvedHelperText = helperText ?? (normalizedOptions.length === 0 ? emptyMessage : undefined)
+
+  const scheduleClose = () => {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current)
+    }
+    blurTimeoutRef.current = setTimeout(() => {
+      setIsOpen(false)
+    }, 120)
+  }
+
+  const handleInputFocus = () => {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current)
+    }
+    if (disabled) return
+    setIsOpen(true)
+  }
+
+  const handleInputChange = (event) => {
+    if (disabled) return
+    setInputValue(event.target.value)
+    setIsOpen(true)
+    setHighlightedIndex(0)
+  }
+
+  const handleOptionSelect = (option) => {
+    if (!option || disabled) return
+    onSelect?.(option)
+    if (onValueChange) {
+      onValueChange(option.id)
+    }
+    if (clearOnSelect) {
+      previousValueRef.current = ''
+      setInputValue('')
+    } else {
+      previousValueRef.current = option.id
+      setInputValue(option.label)
+    }
+    setIsOpen(false)
+    setHighlightedIndex(0)
+    if (inputRef.current) {
+      inputRef.current.focus()
+    }
+  }
+
+  const handleClear = () => {
+    if (!canClear) return
+    previousValueRef.current = ''
+    setInputValue('')
+    onValueChange?.('')
+    onSelect?.(null)
+    setIsOpen(false)
+    setHighlightedIndex(0)
+    if (inputRef.current) {
+      inputRef.current.focus()
+    }
+  }
+
+  const handleKeyDown = (event) => {
+    if (disabled) return
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      if (!isOpen) {
+        setIsOpen(true)
+        return
+      }
+      setHighlightedIndex((previous) => (filteredOptions.length === 0 ? 0 : (previous + 1) % filteredOptions.length))
+      return
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      if (!isOpen) {
+        setIsOpen(true)
+        return
+      }
+      setHighlightedIndex((previous) => {
+        if (filteredOptions.length === 0) return 0
+        return (previous - 1 + filteredOptions.length) % filteredOptions.length
+      })
+      return
+    }
+    if (event.key === 'Enter') {
+      if (isOpen && filteredOptions[highlightedIndex]) {
+        event.preventDefault()
+        handleOptionSelect(filteredOptions[highlightedIndex])
+      }
+      return
+    }
+    if (event.key === 'Escape') {
+      setIsOpen(false)
+    }
+  }
+
+  const activeOptionId = filteredOptions[highlightedIndex]?.id
+
+  return (
+    <div className={classNames('reference-field', className, disabled && 'reference-field--disabled')}>
+      {label && (
+        <label className="reference-field__label" htmlFor={fieldId} id={labelId}>
+          {label}
+        </label>
+      )}
+      <div className="reference-field__control">
+        <input
+          ref={inputRef}
+          id={fieldId}
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onFocus={handleInputFocus}
+          onBlur={scheduleClose}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          autoComplete="off"
+          aria-expanded={isOpen}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-activedescendant={isOpen && activeOptionId ? `${fieldId}-option-${activeOptionId}` : undefined}
+          disabled={disabled}
+          className="reference-field__input"
+        />
+        {canClear && (
+          <button type="button" className="reference-field__clear" onClick={handleClear} aria-label="Clear selection">
+            ×
+          </button>
+        )}
+        <span className="reference-field__chevron" aria-hidden="true">
+          ▾
+        </span>
+      </div>
+      {resolvedHelperText && <p className="helper-text">{resolvedHelperText}</p>}
+      {isOpen && !disabled && (
+        <ul className="reference-field__options" role="listbox" id={listboxId} aria-labelledby={labelId}>
+          {filteredOptions.length === 0 ? (
+            <li className="reference-field__option reference-field__option--empty">{noMatchesMessage}</li>
+          ) : (
+            filteredOptions.map((option) => {
+              const isActive = option.id === activeOptionId
+              return (
+                <li key={option.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={isActive}
+                    id={`${fieldId}-option-${option.id}`}
+                    className={classNames('reference-field__option', isActive && 'reference-field__option--active')}
+                    onMouseDown={(event) => {
+                      event.preventDefault()
+                      handleOptionSelect(option)
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                </li>
+              )
+            })
+          )}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function ListCollector({
   label,
   options = [],
@@ -913,12 +1160,10 @@ function ListCollector({
   const canModify = typeof onChange === 'function'
   const canAddMore = availableOptions.length > 0
 
-  const handleSelectChange = (event) => {
-    if (!canModify) return
-    const value = event.target.value
-    if (!value) return
-    if (selectedIds.includes(value)) return
-    onChange([...selectedIds, value])
+  const handleOptionSelect = (option) => {
+    if (!canModify || !option) return
+    if (selectedIds.includes(option.id)) return
+    onChange([...selectedIds, option.id])
   }
 
   const handleRemove = (id) => {
@@ -928,55 +1173,46 @@ function ListCollector({
 
   return (
     <div className="list-collector">
-      <label className="list-collector__label" htmlFor={selectId}>
-        {label}
-      </label>
       {options.length === 0 ? (
-        <p className="helper-text">{emptyMessage}</p>
-      ) : (
         <>
-          <div className="list-collector__control">
-            <select
-              id={selectId}
-              value=""
-              onChange={handleSelectChange}
-              disabled={!canModify || !canAddMore}
-            >
-              <option value="">
-                {canAddMore ? placeholder : 'All options linked'}
-              </option>
-              {availableOptions.map((option) => {
-                const optionLabel = option.label ?? option.name ?? option.id
-                return (
-                  <option key={option.id} value={option.id}>
-                    {optionLabel}
-                  </option>
-                )
-              })}
-            </select>
-          </div>
-
-          {selectedOptions.length > 0 ? (
-            <div className="list-collector__pill-row" role="list">
-              {selectedOptions.map((option) => (
-                <span key={option.id} className="list-collector__pill" role="listitem">
-                  {option.label}
-                  <button
-                    type="button"
-                    className="list-collector__pill-remove"
-                    onClick={() => handleRemove(option.id)}
-                    disabled={!canModify}
-                    aria-label={`Remove ${option.label}`}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="helper-text">{noSelectionMessage}</p>
-          )}
+          <span className="list-collector__label">{label}</span>
+          <p className="helper-text">{emptyMessage}</p>
         </>
+      ) : (
+        <ReferenceField
+          id={selectId}
+          label={label}
+          options={availableOptions}
+          valueId=""
+          onSelect={handleOptionSelect}
+          placeholder={placeholder}
+          disabled={!canModify || !canAddMore}
+          helperText={!canAddMore ? 'All options linked' : undefined}
+          noMatchesMessage="No matching options"
+          allowClear={false}
+          clearOnSelect
+        />
+      )}
+
+      {selectedOptions.length > 0 ? (
+        <div className="list-collector__pill-row" role="list">
+          {selectedOptions.map((option) => (
+            <span key={option.id} className="list-collector__pill" role="listitem">
+              {option.label}
+              <button
+                type="button"
+                className="list-collector__pill-remove"
+                onClick={() => handleRemove(option.id)}
+                disabled={!canModify}
+                aria-label={`Remove ${option.label}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="helper-text">{noSelectionMessage}</p>
       )}
     </div>
   )
@@ -1219,6 +1455,25 @@ function NpcDirectory({
     [records, viewer.recordId]
   )
 
+  const npcCampaignNames = useMemo(() => {
+    if (!currentViewerRecord || !Array.isArray(currentViewerRecord.campaignIds)) return []
+    return currentViewerRecord.campaignIds
+      .map((id) => campaignLookup.get(id) || id)
+      .filter(Boolean)
+  }, [currentViewerRecord, campaignLookup])
+
+  const npcCharacterNames = useMemo(() => {
+    if (!currentViewerRecord || !Array.isArray(currentViewerRecord.characterIds)) return []
+    return currentViewerRecord.characterIds
+      .map((id) => characterLookup.get(id) || id)
+      .filter(Boolean)
+  }, [currentViewerRecord, characterLookup])
+
+  const npcAudienceDescription = useMemo(() => {
+    if (!currentViewerRecord) return ''
+    return describeRecordAudience(currentViewerRecord, { campaignLookup, characterLookup })
+  }, [currentViewerRecord, campaignLookup, characterLookup])
+
   const openViewer = (record) => {
     if (!record) return
     setViewer({ open: true, recordId: record.id })
@@ -1287,6 +1542,7 @@ function NpcDirectory({
           open={editor.open}
           title={editor.mode === 'edit' ? 'Edit NPC' : 'Add NPC'}
           onClose={closeEditor}
+          size="lg"
           actions={
             <>
               <button type="button" className="ghost" onClick={closeEditor}>
@@ -1416,35 +1672,25 @@ function NpcDirectory({
               noSelectionMessage="No characters linked."
             />
 
-            <label>
-              <span>Current location</span>
-              <select
-                value={form.locationId}
-                onChange={(event) => setForm((prev) => ({ ...prev, locationId: event.target.value }))}
-              >
-                <option value="">Unknown</option>
-                {locationOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <ReferenceField
+              label="Current location"
+              options={locationOptions}
+              valueId={form.locationId}
+              onValueChange={(value) => setForm((prev) => ({ ...prev, locationId: value }))}
+              placeholder="Unknown or search locations"
+              emptyMessage="No locations recorded yet."
+              noMatchesMessage="No matching locations"
+            />
 
-            <label>
-              <span>Hometown</span>
-              <select
-                value={form.hometownId}
-                onChange={(event) => setForm((prev) => ({ ...prev, hometownId: event.target.value }))}
-              >
-                <option value="">Unknown</option>
-                {locationOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <ReferenceField
+              label="Hometown"
+              options={locationOptions}
+              valueId={form.hometownId}
+              onValueChange={(value) => setForm((prev) => ({ ...prev, hometownId: value }))}
+              placeholder="Unknown or search locations"
+              emptyMessage="No locations recorded yet."
+              noMatchesMessage="No matching locations"
+            />
 
             <label>
               <span>Description</span>
@@ -1464,60 +1710,122 @@ function NpcDirectory({
         onClose={closeViewer}
       >
         {currentViewerRecord ? (
-          <div className="drawer-stack">
-            <section className="drawer-subsection">
-              <div className="drawer-field-grid">
-                <div>
-                  <h4>Status</h4>
-                  <p>{currentViewerRecord.status || 'Unknown'}</p>
-                </div>
-                <div>
-                  <h4>Ancestry</h4>
-                  <p>{raceLookup.get(currentViewerRecord.raceId) || 'Unspecified'}</p>
-                </div>
-                <div>
-                  <h4>World</h4>
-                  <p>{worldLookup.get(currentViewerRecord.worldId) || 'Unassigned'}</p>
-                </div>
-              </div>
-              <div className="drawer-field-grid">
-                <div>
-                  <h4>Disposition</h4>
-                  <p>{currentViewerRecord.demeanor || 'Unknown'}</p>
-                </div>
-                <div>
-                  <h4>Current location</h4>
-                  <p>{locationLookup.get(currentViewerRecord.locationId) || 'Unknown'}</p>
-                </div>
-                <div>
-                  <h4>Hometown</h4>
-                  <p>{locationLookup.get(currentViewerRecord.hometownId) || 'Unknown'}</p>
-                </div>
-              </div>
-              {currentViewerRecord.status === 'Dead' && currentViewerRecord.causeOfDeath && (
-                <div>
-                  <h4>Cause of death</h4>
-                  <p>{currentViewerRecord.causeOfDeath}</p>
-                </div>
-              )}
-              <div>
-                <h4>Summary</h4>
-                <p>{currentViewerRecord.description || 'No background summary recorded yet.'}</p>
-              </div>
-            </section>
-
-            <EntityRelationshipManager
-              entity={currentViewerRecord}
-              entityType="npc"
-              relationships={relationships}
-              relationshipTypes={relationshipTypes}
-              entityDirectory={entityDirectory}
-              onCreateRelationship={onCreateRelationship}
-              onDeleteRelationship={onDeleteRelationship}
-              onNavigate={handleRelationshipNavigate}
-              canManage={canManage}
-            />
-          </div>
+          <DrawerTabs
+            tabs={[
+              {
+                id: 'npc-dossier',
+                label: 'Dossier',
+                content: (
+                  <div className="drawer-stack">
+                    <section className="drawer-subsection">
+                      <div className="drawer-field-grid">
+                        <div>
+                          <h4>Status</h4>
+                          <p>{currentViewerRecord.status || 'Unknown'}</p>
+                        </div>
+                        <div>
+                          <h4>Ancestry</h4>
+                          <p>{raceLookup.get(currentViewerRecord.raceId) || 'Unspecified'}</p>
+                        </div>
+                        <div>
+                          <h4>World</h4>
+                          <p>{worldLookup.get(currentViewerRecord.worldId) || 'Unassigned'}</p>
+                        </div>
+                      </div>
+                      <div className="drawer-field-grid">
+                        <div>
+                          <h4>Disposition</h4>
+                          <p>{currentViewerRecord.demeanor || 'Unknown'}</p>
+                        </div>
+                        <div>
+                          <h4>Current location</h4>
+                          <p>{locationLookup.get(currentViewerRecord.locationId) || 'Unknown'}</p>
+                        </div>
+                        <div>
+                          <h4>Hometown</h4>
+                          <p>{locationLookup.get(currentViewerRecord.hometownId) || 'Unknown'}</p>
+                        </div>
+                      </div>
+                      {currentViewerRecord.status === 'Dead' && currentViewerRecord.causeOfDeath && (
+                        <div>
+                          <h4>Cause of death</h4>
+                          <p>{currentViewerRecord.causeOfDeath}</p>
+                        </div>
+                      )}
+                      <div>
+                        <h4>Summary</h4>
+                        <p>{currentViewerRecord.description || 'No background summary recorded yet.'}</p>
+                      </div>
+                    </section>
+                  </div>
+                )
+              },
+              {
+                id: 'npc-dm-controls',
+                label: 'DM controls',
+                content: (
+                  <div className="drawer-stack">
+                    <section className="drawer-subsection">
+                      <div className="drawer-field-grid">
+                        <div>
+                          <h4>Visibility</h4>
+                          <p>{(currentViewerRecord.visibility || 'campaign').toUpperCase()}</p>
+                          {npcAudienceDescription && <p className="helper-text">{npcAudienceDescription}</p>}
+                        </div>
+                        <div>
+                          <h4>Campaign access</h4>
+                          {npcCampaignNames.length > 0 ? (
+                            <ul className="drawer-list">
+                              {npcCampaignNames.map((name) => (
+                                <li key={name}>{name}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="helper-text">No campaigns linked.</p>
+                          )}
+                        </div>
+                        <div>
+                          <h4>Character access</h4>
+                          {npcCharacterNames.length > 0 ? (
+                            <ul className="drawer-list">
+                              {npcCharacterNames.map((name) => (
+                                <li key={name}>{name}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="helper-text">No characters linked.</p>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <h4>DM notes</h4>
+                        <p>{currentViewerRecord.notes || 'No private notes recorded.'}</p>
+                      </div>
+                    </section>
+                  </div>
+                )
+              },
+              {
+                id: 'npc-relationships',
+                label: 'Relationships',
+                content: (
+                  <div className="drawer-stack">
+                    <EntityRelationshipManager
+                      entity={currentViewerRecord}
+                      entityType="npc"
+                      relationships={relationships}
+                      relationshipTypes={relationshipTypes}
+                      entityDirectory={entityDirectory}
+                      onCreateRelationship={onCreateRelationship}
+                      onDeleteRelationship={onDeleteRelationship}
+                      onNavigate={handleRelationshipNavigate}
+                      canManage={canManage}
+                    />
+                  </div>
+                )
+              }
+            ]}
+          />
         ) : (
           <p className="helper-text">Select an NPC to view their dossier.</p>
         )}
@@ -1544,7 +1852,15 @@ function LocationsAtlas({
   worlds = [],
   locationTypes = [],
   onSave,
-  onDelete
+  onDelete,
+  relationships = [],
+  relationshipTypes = [],
+  entityDirectory = {},
+  onCreateRelationship,
+  onDeleteRelationship,
+  onNavigateEntity,
+  focusId,
+  onClearFocus
 }) {
   const emptyDescription = showContextPrompt
     ? 'Set a campaign or character context to reveal scouting intel.'
@@ -1651,6 +1967,7 @@ function LocationsAtlas({
   const canManage = typeof onSave === 'function'
   const formId = useMemo(() => newId('location-form'), [])
   const [editor, setEditor] = useState({ open: false, mode: 'create', record: null })
+  const [viewer, setViewer] = useState({ open: false, recordId: null })
   const [form, setForm] = useState(() => ({
     name: '',
     typeId: locationTypes[0]?.id ?? '',
@@ -1760,10 +2077,69 @@ function LocationsAtlas({
       : []
   }, [records, activeRecordId])
 
+  const currentViewerRecord = useMemo(
+    () => records.find((location) => location.id === viewer.recordId) || null,
+    [records, viewer.recordId]
+  )
+
+  const locationCampaignNames = useMemo(() => {
+    if (!currentViewerRecord || !Array.isArray(currentViewerRecord.campaignIds)) return []
+    return currentViewerRecord.campaignIds
+      .map((id) => campaignLookup.get(id) || id)
+      .filter(Boolean)
+  }, [currentViewerRecord, campaignLookup])
+
+  const locationCharacterNames = useMemo(() => {
+    if (!currentViewerRecord || !Array.isArray(currentViewerRecord.characterIds)) return []
+    return currentViewerRecord.characterIds
+      .map((id) => characterLookup.get(id) || id)
+      .filter(Boolean)
+  }, [currentViewerRecord, characterLookup])
+
+  const locationAudienceDescription = useMemo(() => {
+    if (!currentViewerRecord) return ''
+    return describeRecordAudience(currentViewerRecord, { campaignLookup, characterLookup })
+  }, [currentViewerRecord, campaignLookup, characterLookup])
+
   const handleDelete = (recordId) => {
     if (!onDelete) return
     if (!window.confirm('Delete this location?')) return
     onDelete(recordId)
+  }
+
+  const openViewer = (record) => {
+    if (!record) return
+    setViewer({ open: true, recordId: record.id })
+  }
+
+  const closeViewer = () => {
+    setViewer({ open: false, recordId: null })
+  }
+
+  useEffect(() => {
+    if (!focusId) return
+    const match = records.find((location) => location.id === focusId)
+    if (match) {
+      setViewer({ open: true, recordId: focusId })
+      onClearFocus?.()
+    }
+  }, [focusId, records, onClearFocus])
+
+  useEffect(() => {
+    if (viewer.open && !currentViewerRecord) {
+      setViewer({ open: false, recordId: null })
+    }
+  }, [viewer.open, currentViewerRecord])
+
+  const handleRelationshipNavigate = (type, id) => {
+    if (type === 'location') {
+      const match = records.find((location) => location.id === id)
+      if (match) {
+        setViewer({ open: true, recordId: id })
+        return
+      }
+    }
+    onNavigateEntity?.(type, id)
   }
 
   return (
@@ -1791,6 +2167,7 @@ function LocationsAtlas({
         onCreate={canManage ? openCreate : undefined}
         onEdit={canManage ? openEdit : undefined}
         onDelete={canManage ? handleDelete : undefined}
+        onView={openViewer}
       />
 
       {canManage && (
@@ -1945,6 +2322,133 @@ function LocationsAtlas({
           </form>
         </FormModal>
       )}
+
+      <RecordDrawer
+        open={viewer.open && Boolean(currentViewerRecord)}
+        title={currentViewerRecord ? currentViewerRecord.name : 'Location detail'}
+        onClose={closeViewer}
+      >
+        {currentViewerRecord ? (
+          <DrawerTabs
+            tabs={[
+              {
+                id: 'location-dossier',
+                label: 'Dossier',
+                content: (
+                  <div className="drawer-stack">
+                    <section className="drawer-subsection">
+                      <div className="drawer-field-grid">
+                        <div>
+                          <h4>Type</h4>
+                          <p>{locationTypeLookup.get(currentViewerRecord.typeId) || 'Uncategorised'}</p>
+                        </div>
+                        <div>
+                          <h4>World</h4>
+                          <p>{worldLookup.get(currentViewerRecord.worldId) || 'Unassigned world'}</p>
+                        </div>
+                        <div>
+                          <h4>Parent location</h4>
+                          <p>{locationNameLookup.get(currentViewerRecord.parentId) || 'No parent'}</p>
+                        </div>
+                      </div>
+                      <div className="drawer-field-grid">
+                        <div>
+                          <h4>Last scouted</h4>
+                          <p>{formatRelativeTime(currentViewerRecord.lastScoutedAt)}</p>
+                        </div>
+                        <div>
+                          <h4>Tags</h4>
+                          {Array.isArray(currentViewerRecord.tags) && currentViewerRecord.tags.length > 0 ? (
+                            <div className="knowledge-chip-row">
+                              {currentViewerRecord.tags.map((tag) => (
+                                <span key={tag} className="knowledge-chip knowledge-chip--tag">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="helper-text">No tags assigned.</p>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <h4>Summary</h4>
+                        <p>{currentViewerRecord.summary || 'No summary recorded yet.'}</p>
+                      </div>
+                      <div>
+                        <h4>Field notes</h4>
+                        <p>{currentViewerRecord.notes || 'No field notes captured.'}</p>
+                      </div>
+                    </section>
+                  </div>
+                )
+              },
+              {
+                id: 'location-dm-controls',
+                label: 'DM controls',
+                content: (
+                  <div className="drawer-stack">
+                    <section className="drawer-subsection">
+                      <div className="drawer-field-grid">
+                        <div>
+                          <h4>Visibility</h4>
+                          <p>{(currentViewerRecord.visibility || 'campaign').toUpperCase()}</p>
+                          {locationAudienceDescription && <p className="helper-text">{locationAudienceDescription}</p>}
+                        </div>
+                        <div>
+                          <h4>Campaign access</h4>
+                          {locationCampaignNames.length > 0 ? (
+                            <ul className="drawer-list">
+                              {locationCampaignNames.map((name) => (
+                                <li key={name}>{name}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="helper-text">No campaigns linked.</p>
+                          )}
+                        </div>
+                        <div>
+                          <h4>Character access</h4>
+                          {locationCharacterNames.length > 0 ? (
+                            <ul className="drawer-list">
+                              {locationCharacterNames.map((name) => (
+                                <li key={name}>{name}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="helper-text">No characters linked.</p>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                )
+              },
+              {
+                id: 'location-relationships',
+                label: 'Relationships',
+                content: (
+                  <div className="drawer-stack">
+                    <EntityRelationshipManager
+                      entity={currentViewerRecord}
+                      entityType="location"
+                      relationships={relationships}
+                      relationshipTypes={relationshipTypes}
+                      entityDirectory={entityDirectory}
+                      onCreateRelationship={onCreateRelationship}
+                      onDeleteRelationship={onDeleteRelationship}
+                      onNavigate={handleRelationshipNavigate}
+                      canManage={canManage}
+                    />
+                  </div>
+                )
+              }
+            ]}
+          />
+        ) : (
+          <p className="helper-text">Select a location to view its dossier.</p>
+        )}
+      </RecordDrawer>
     </>
   )
 }
@@ -2085,6 +2589,18 @@ function OrganisationsLedger({
     () => records.find((organisation) => organisation.id === viewer.recordId) || null,
     [records, viewer.recordId]
   )
+
+  const organisationCampaignNames = useMemo(() => {
+    if (!currentViewerRecord || !Array.isArray(currentViewerRecord.campaignIds)) return []
+    return currentViewerRecord.campaignIds
+      .map((id) => campaignLookup.get(id) || id)
+      .filter(Boolean)
+  }, [currentViewerRecord, campaignLookup])
+
+  const organisationAudienceDescription = useMemo(() => {
+    if (!currentViewerRecord) return ''
+    return describeRecordAudience(currentViewerRecord, { campaignLookup, characterLookup })
+  }, [currentViewerRecord, campaignLookup, characterLookup])
 
   const resetForm = () => {
     setForm({
@@ -2397,97 +2913,143 @@ function OrganisationsLedger({
         onClose={closeViewer}
       >
         {currentViewerRecord ? (
-          <div className="drawer-stack">
-            <section className="drawer-subsection">
-              <div className="drawer-field-grid">
-                <div>
-                  <h4>World</h4>
-                  <p>{worldLookup.get(currentViewerRecord.worldId) || 'Unassigned'}</p>
-                </div>
-                <div>
-                  <h4>Last activity</h4>
-                  <p>{formatRelativeTime(currentViewerRecord.lastActivityAt)}</p>
-                </div>
-                <div>
-                  <h4>Visibility</h4>
-                  <p>{(currentViewerRecord.visibility || 'campaign').toUpperCase()}</p>
-                </div>
-              </div>
-              <div>
-                <h4>Summary</h4>
-                <p>{currentViewerRecord.summary || 'No intelligence captured yet.'}</p>
-              </div>
-              {currentViewerRecord.influence && (
-                <div>
-                  <h4>Influence</h4>
-                  <p>{currentViewerRecord.influence}</p>
-                </div>
-              )}
-              {Array.isArray(currentViewerRecord.goals) && currentViewerRecord.goals.length > 0 && (
-                <div>
-                  <h4>Current objectives</h4>
-                  <ul className="drawer-list">
-                    {currentViewerRecord.goals.map((goal) => (
-                      <li key={goal}>{goal}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {(Array.isArray(currentViewerRecord.allies) && currentViewerRecord.allies.length > 0) ||
-              (Array.isArray(currentViewerRecord.enemies) && currentViewerRecord.enemies.length > 0) ? (
-                <div className="drawer-allies-enemies">
-                  {Array.isArray(currentViewerRecord.allies) && currentViewerRecord.allies.length > 0 && (
-                    <div>
-                      <h4>Allies</h4>
-                      <div className="knowledge-chip-row">
-                        {currentViewerRecord.allies.map((ally) => (
-                          <span key={ally} className="knowledge-chip knowledge-chip--ally">
-                            {ally}
-                          </span>
-                        ))}
+          <DrawerTabs
+            tabs={[
+              {
+                id: 'organisation-dossier',
+                label: 'Dossier',
+                content: (
+                  <div className="drawer-stack">
+                    <section className="drawer-subsection">
+                      <div className="drawer-field-grid">
+                        <div>
+                          <h4>World</h4>
+                          <p>{worldLookup.get(currentViewerRecord.worldId) || 'Unassigned'}</p>
+                        </div>
+                        <div>
+                          <h4>Alignment</h4>
+                          <p>{currentViewerRecord.alignment || 'Unaligned'}</p>
+                        </div>
+                        <div>
+                          <h4>Last activity</h4>
+                          <p>{formatRelativeTime(currentViewerRecord.lastActivityAt)}</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {Array.isArray(currentViewerRecord.enemies) && currentViewerRecord.enemies.length > 0 && (
-                    <div>
-                      <h4>Adversaries</h4>
-                      <div className="knowledge-chip-row">
-                        {currentViewerRecord.enemies.map((enemy) => (
-                          <span key={enemy} className="knowledge-chip knowledge-chip--enemy">
-                            {enemy}
-                          </span>
-                        ))}
+                      <div>
+                        <h4>Summary</h4>
+                        <p>{currentViewerRecord.summary || 'No intelligence captured yet.'}</p>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-              {Array.isArray(currentViewerRecord.tags) && currentViewerRecord.tags.length > 0 && (
-                <div>
-                  <h4>Tags</h4>
-                  <div className="knowledge-chip-row">
-                    {currentViewerRecord.tags.map((tag) => (
-                      <span key={tag} className="knowledge-chip knowledge-chip--tag">
-                        {tag}
-                      </span>
-                    ))}
+                      {currentViewerRecord.influence && (
+                        <div>
+                          <h4>Influence</h4>
+                          <p>{currentViewerRecord.influence}</p>
+                        </div>
+                      )}
+                      {Array.isArray(currentViewerRecord.goals) && currentViewerRecord.goals.length > 0 && (
+                        <div>
+                          <h4>Current objectives</h4>
+                          <ul className="drawer-list">
+                            {currentViewerRecord.goals.map((goal) => (
+                              <li key={goal}>{goal}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {(Array.isArray(currentViewerRecord.allies) && currentViewerRecord.allies.length > 0) ||
+                      (Array.isArray(currentViewerRecord.enemies) && currentViewerRecord.enemies.length > 0) ? (
+                        <div className="drawer-allies-enemies">
+                          {Array.isArray(currentViewerRecord.allies) && currentViewerRecord.allies.length > 0 && (
+                            <div>
+                              <h4>Allies</h4>
+                              <div className="knowledge-chip-row">
+                                {currentViewerRecord.allies.map((ally) => (
+                                  <span key={ally} className="knowledge-chip knowledge-chip--ally">
+                                    {ally}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {Array.isArray(currentViewerRecord.enemies) && currentViewerRecord.enemies.length > 0 && (
+                            <div>
+                              <h4>Adversaries</h4>
+                              <div className="knowledge-chip-row">
+                                {currentViewerRecord.enemies.map((enemy) => (
+                                  <span key={enemy} className="knowledge-chip knowledge-chip--enemy">
+                                    {enemy}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                      {Array.isArray(currentViewerRecord.tags) && currentViewerRecord.tags.length > 0 && (
+                        <div>
+                          <h4>Tags</h4>
+                          <div className="knowledge-chip-row">
+                            {currentViewerRecord.tags.map((tag) => (
+                              <span key={tag} className="knowledge-chip knowledge-chip--tag">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </section>
                   </div>
-                </div>
-              )}
-            </section>
-
-            <EntityRelationshipManager
-              entity={currentViewerRecord}
-              entityType="organisation"
-              relationships={relationships}
-              relationshipTypes={relationshipTypes}
-              entityDirectory={entityDirectory}
-              onCreateRelationship={onCreateRelationship}
-              onDeleteRelationship={onDeleteRelationship}
-              onNavigate={handleRelationshipNavigate}
-              canManage={canManage}
-            />
-          </div>
+                )
+              },
+              {
+                id: 'organisation-dm-controls',
+                label: 'DM controls',
+                content: (
+                  <div className="drawer-stack">
+                    <section className="drawer-subsection">
+                      <div className="drawer-field-grid">
+                        <div>
+                          <h4>Visibility</h4>
+                          <p>{(currentViewerRecord.visibility || 'campaign').toUpperCase()}</p>
+                          {organisationAudienceDescription && <p className="helper-text">{organisationAudienceDescription}</p>}
+                        </div>
+                        <div>
+                          <h4>Campaign access</h4>
+                          {organisationCampaignNames.length > 0 ? (
+                            <ul className="drawer-list">
+                              {organisationCampaignNames.map((name) => (
+                                <li key={name}>{name}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="helper-text">No campaigns linked.</p>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                )
+              },
+              {
+                id: 'organisation-relationships',
+                label: 'Relationships',
+                content: (
+                  <div className="drawer-stack">
+                    <EntityRelationshipManager
+                      entity={currentViewerRecord}
+                      entityType="organisation"
+                      relationships={relationships}
+                      relationshipTypes={relationshipTypes}
+                      entityDirectory={entityDirectory}
+                      onCreateRelationship={onCreateRelationship}
+                      onDeleteRelationship={onDeleteRelationship}
+                      onNavigate={handleRelationshipNavigate}
+                      canManage={canManage}
+                    />
+                  </div>
+                )
+              }
+            ]}
+          />
         ) : (
           <p className="helper-text">Select an organisation to review its dossier.</p>
         )}
@@ -2796,7 +3358,11 @@ function App() {
     }
     return { campaignId: '', characterId: '' }
   })
-  const [pendingRelationshipFocus, setPendingRelationshipFocus] = useState({ npcId: null, organisationId: null })
+  const [pendingRelationshipFocus, setPendingRelationshipFocus] = useState({
+    npcId: null,
+    organisationId: null,
+    locationId: null
+  })
   const [sidebarPinned, setSidebarPinned] = useState(() => {
     if (storedState?.ui && typeof storedState.ui === 'object') {
       const value = storedState.ui.sidebarPinned
@@ -2848,6 +3414,11 @@ function App() {
       if (type === 'npc') {
         setPendingRelationshipFocus((prev) => ({ ...prev, npcId: id }))
         navigate('/npcs')
+        return
+      }
+      if (type === 'location') {
+        setPendingRelationshipFocus((prev) => ({ ...prev, locationId: id }))
+        navigate('/locations')
         return
       }
       if (type === 'organisation') {
@@ -3251,6 +3822,12 @@ function App() {
         getName: (record) => record?.name || 'Unknown character',
         route: '/characters'
       },
+      location: {
+        label: 'Location',
+        records: locations,
+        getName: (record) => record?.name || 'Unknown location',
+        route: '/locations'
+      },
       organisation: {
         label: 'Organisation',
         records: organisations,
@@ -3264,7 +3841,7 @@ function App() {
         route: '/admin'
       }
     }),
-    [npcs, characters, organisations, users]
+    [npcs, characters, locations, organisations, users]
   )
 
   useEffect(() => {
@@ -4174,6 +4751,16 @@ function App() {
         onSave={canManageKnowledge ? handleSaveLocation : undefined}
         onDelete={canManageKnowledge ? handleDeleteLocation : undefined}
         locationTypes={locationTypes}
+        relationships={relationships}
+        relationshipTypes={relationshipTypes}
+        entityDirectory={entityDirectory}
+        onCreateRelationship={handleCreateRelationship}
+        onDeleteRelationship={handleDeleteRelationship}
+        onNavigateEntity={handleRelationshipNavigation}
+        focusId={pendingRelationshipFocus.locationId}
+        onClearFocus={() =>
+          setPendingRelationshipFocus((prev) => ({ ...prev, locationId: null }))
+        }
       />
     )
   } else if (pathMatches(currentPath, '/organisations')) {
@@ -8203,7 +8790,7 @@ function ConfirmDialog({ open, title, description, detail, confirmLabel, onCance
   )
 }
 
-function FormModal({ open, title, onClose, actions, children }) {
+function FormModal({ open, title, onClose, actions, children, size = 'md', className = '' }) {
   const dialogRef = useRef(null)
   const previouslyFocusedElement = useRef(null)
   const headingId = useMemo(() => newId('modal-title'), [])
@@ -8282,12 +8869,14 @@ function FormModal({ open, title, onClose, actions, children }) {
 
   if (!open) return null
 
+  const modalClasses = classNames('form-modal', `form-modal--${size}`, className)
+
   return (
     <div className="modal-layer">
       <div className="modal-overlay" onClick={onClose} />
       <div
         ref={dialogRef}
-        className="form-modal"
+        className={modalClasses}
         role="dialog"
         aria-modal="true"
         aria-labelledby={headingId}
@@ -8302,6 +8891,73 @@ function FormModal({ open, title, onClose, actions, children }) {
         <div className="form-modal__body">{children}</div>
         <footer className="form-modal__footer">{actions}</footer>
       </div>
+    </div>
+  )
+}
+
+function DrawerTabs({ tabs = [], initialTabId }) {
+  const firstTabId = useMemo(() => (tabs.length > 0 ? tabs[0].id : null), [tabs])
+  const [activeTabId, setActiveTabId] = useState(initialTabId || firstTabId)
+
+  useEffect(() => {
+    const hasActive = tabs.some((tab) => tab.id === activeTabId)
+    if (!hasActive) {
+      if (initialTabId && tabs.some((tab) => tab.id === initialTabId)) {
+        setActiveTabId(initialTabId)
+      } else {
+        setActiveTabId(firstTabId)
+      }
+    }
+  }, [tabs, activeTabId, initialTabId, firstTabId])
+
+  const handleKeyDown = (event, index) => {
+    if (tabs.length === 0) return
+    if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      const nextIndex = (index + 1) % tabs.length
+      setActiveTabId(tabs[nextIndex].id)
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      const nextIndex = (index - 1 + tabs.length) % tabs.length
+      setActiveTabId(tabs[nextIndex].id)
+    }
+  }
+
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) || null
+
+  return (
+    <div className="drawer-tabs">
+      <div className="drawer-tabs__list" role="tablist">
+        {tabs.map((tab, index) => {
+          const isActive = tab.id === activeTabId
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              id={`${tab.id}-tab`}
+              role="tab"
+              aria-selected={isActive}
+              aria-controls={`${tab.id}-panel`}
+              className={classNames('drawer-tabs__tab', isActive && 'drawer-tabs__tab--active')}
+              tabIndex={isActive ? 0 : -1}
+              onClick={() => setActiveTabId(tab.id)}
+              onKeyDown={(event) => handleKeyDown(event, index)}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+      {activeTab && (
+        <div
+          id={`${activeTab.id}-panel`}
+          role="tabpanel"
+          aria-labelledby={`${activeTab.id}-tab`}
+          className="drawer-tabs__panel"
+        >
+          {activeTab.content}
+        </div>
+      )}
     </div>
   )
 }
