@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { readStoredState, writeStoredState } from './utils/storage'
 import { newId } from './utils/idGenerator'
-import { AuthProvider } from './context/AuthContext'
-import { DataProvider } from './context/DataContext'
 import AppLayout from './components/layout/AppLayout'
 import {
   seededRoles,
@@ -3035,7 +3033,10 @@ function AppContent() {
   const currentUserEmail = resolvedCurrentUser?.email ?? currentAccountProfile?.email ?? '—'
   const currentUserStatus = resolvedCurrentUser?.status ?? 'Active'
   const currentUserTitle = currentAccountProfile?.title ?? 'Adventurer'
-  const currentUserPreferences = currentAccountProfile?.preferences ?? {}
+  const currentUserPreferences = useMemo(
+    () => currentAccountProfile?.preferences ?? {},
+    [currentAccountProfile]
+  )
   const currentUserInitials = useMemo(() => {
     const source = (currentUserDisplayName || '').trim()
     if (!source) return 'AD'
@@ -3514,13 +3515,13 @@ function AppContent() {
     }
   }, [currentPath, activeModuleId, sidebarModules, navigate])
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     setSession({ authenticatedUserId: null })
     setActiveSectionId('users')
     setAuthError('You have been signed out. Sign in again to continue.')
     setAppContext({ campaignId: '', characterId: '' })
     navigate('/', { replace: true })
-  }
+  }, [navigate, setSession, setActiveSectionId, setAuthError, setAppContext])
 
   const handleAuthenticate = ({ identifier, password }) => {
     const trimmedIdentifier = typeof identifier === 'string' ? identifier.trim() : ''
@@ -4096,6 +4097,116 @@ function AppContent() {
 
   const profileReturnHandler = sidebarModules.length > 0 ? () => navigate(defaultModulePath) : undefined
 
+  const headerCampaignOptions = useMemo(
+    () =>
+      (isWorldBuilder ? campaigns : accessibleCampaigns).map((campaign) => ({
+        id: campaign.id,
+        name: campaign.name
+      })),
+    [isWorldBuilder, campaigns, accessibleCampaigns]
+  )
+
+  const headerCharacterOptions = useMemo(
+    () =>
+      (isWorldBuilder ? characters : myCharacters).map((character) => ({
+        id: character.id,
+        name: character.name
+      })),
+    [isWorldBuilder, characters, myCharacters]
+  )
+
+  const handleHeaderCampaignSelect = useCallback(
+    (campaignId) => {
+      setAppContext((prev) => ({ ...prev, campaignId }))
+    },
+    [setAppContext]
+  )
+
+  const handleHeaderCharacterSelect = useCallback(
+    (characterId) => {
+      setAppContext((prev) => ({ ...prev, characterId }))
+    },
+    [setAppContext]
+  )
+
+  const handleNavigateHome = useCallback(() => {
+    navigate(defaultModulePath)
+  }, [navigate, defaultModulePath])
+
+  const handleNavigateProfile = useCallback(() => {
+    navigate('/profile')
+  }, [navigate])
+
+  const handleModuleNavigate = useCallback(
+    (path) => {
+      if (!path) return
+      navigate(path)
+    },
+    [navigate]
+  )
+
+  const brandConfig = useMemo(
+    () => ({
+      initials: 'DD',
+      title: 'D&D Shared Space',
+      subtitle: 'Your shared party workspace'
+    }),
+    []
+  )
+
+  const headerProps = useMemo(
+    () => ({
+      onNavigateHome: handleNavigateHome,
+      onNavigateProfile: handleNavigateProfile,
+      campaignOptions: headerCampaignOptions,
+      selectedCampaignId,
+      onSelectCampaign: handleHeaderCampaignSelect,
+      campaignPlaceholder: isWorldBuilder ? 'All campaigns' : 'Choose campaign',
+      showCampaignSelector:
+        isWorldBuilder || headerCampaignOptions.length > 0 || Boolean(selectedCampaignId),
+      characterOptions: headerCharacterOptions,
+      selectedCharacterId,
+      onSelectCharacter: handleHeaderCharacterSelect,
+      characterPlaceholder: isWorldBuilder ? 'All characters' : 'Choose character',
+      showCharacterSelector:
+        isWorldBuilder || headerCharacterOptions.length > 0 || Boolean(selectedCharacterId),
+      currentUser: {
+        name: currentUserDisplayName,
+        initials: currentUserInitials,
+        title: currentUserTitle,
+        email: currentUserEmail,
+        status: currentUserStatus,
+        roleNames: currentUserRoleNames,
+        preferences: currentUserPreferences,
+        isAuthenticated: Boolean(authenticatedUserId)
+      },
+      capabilityBadges: currentUserCapabilityRoles,
+      onLogout: handleLogout,
+      isWorldBuilder
+    }),
+    [
+      handleNavigateHome,
+      handleNavigateProfile,
+      headerCampaignOptions,
+      selectedCampaignId,
+      handleHeaderCampaignSelect,
+      isWorldBuilder,
+      headerCharacterOptions,
+      selectedCharacterId,
+      handleHeaderCharacterSelect,
+      currentUserDisplayName,
+      currentUserInitials,
+      currentUserTitle,
+      currentUserEmail,
+      currentUserStatus,
+      currentUserRoleNames,
+      currentUserPreferences,
+      authenticatedUserId,
+      currentUserCapabilityRoles,
+      handleLogout
+    ]
+  )
+
   let mainContent = null
 
   if (currentPath === '/') {
@@ -4329,8 +4440,14 @@ function AppContent() {
   }
 
   return (
-    <AppLayout>
-      <div className="module-content">{mainContent}</div>
+    <AppLayout
+      sidebarModules={sidebarModules}
+      activeModuleId={activeModuleId}
+      onSelectModule={handleModuleNavigate}
+      headerProps={headerProps}
+      brand={brandConfig}
+    >
+      {mainContent}
     </AppLayout>
   )
 }
@@ -8329,11 +8446,5 @@ function RecordDrawer({ open, title, subtitle, onClose, actions, children }) {
 }
 
 export default function App() {
-  return (
-    <AuthProvider>
-      <DataProvider>
-        <AppContent />
-      </DataProvider>
-    </AuthProvider>
-  )
+  return <AppContent />
 }

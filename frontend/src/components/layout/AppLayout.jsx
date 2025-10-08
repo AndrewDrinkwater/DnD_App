@@ -1,14 +1,53 @@
-import Header from './Header';
-import Sidebar from './Sidebar';
+import { useEffect, useMemo, useRef } from 'react'
+import Header from './Header'
+import Sidebar from './Sidebar'
 
-export default function AppLayout({ children }) {
+const defaultBrand = {
+  initials: 'DD',
+  title: 'D&D Shared Space',
+  subtitle: 'Collaborative command centre'
+}
+
+export default function AppLayout({
+  children,
+  sidebarModules = [],
+  activeModuleId = null,
+  onSelectModule,
+  headerProps = {},
+  brand: providedBrand
+}) {
+  const brand = useMemo(() => ({ ...defaultBrand, ...providedBrand }), [providedBrand])
+  const headerRef = useRef(null)
+
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      const element = headerRef.current
+      if (!element) return
+      const nextHeight = `${element.offsetHeight}px`
+      document.documentElement.style.setProperty('--app-header-height', nextHeight)
+    }
+
+    updateHeaderHeight()
+    window.addEventListener('resize', updateHeaderHeight)
+    return () => {
+      window.removeEventListener('resize', updateHeaderHeight)
+    }
+  }, [])
+
   return (
-    <div className="flex h-screen bg-gray-100">
-      <Sidebar />
-      <div className="flex flex-col flex-1">
-        <Header />
-        <main className="flex-1 overflow-auto p-4">{children}</main>
+    <div className="app-shell">
+      <div className="app-body">
+        <Sidebar
+          modules={sidebarModules}
+          activeModuleId={activeModuleId}
+          onSelectModule={onSelectModule}
+          brand={brand}
+        />
+        <div className="shell-main">
+          <Header ref={headerRef} brand={brand} {...headerProps} />
+          <main className="module-content">{children}</main>
+        </div>
       </div>
     </div>
-  );
+  )
 }
