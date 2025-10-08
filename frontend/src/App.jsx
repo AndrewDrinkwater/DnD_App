@@ -287,8 +287,6 @@ const capabilityMatrix = {
   }
 }
 
-}
-
 const classNames = (...values) => values.filter(Boolean).join(' ')
 
 const statusVariantFromStatus = (status) => {
