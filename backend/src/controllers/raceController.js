@@ -12,7 +12,7 @@ export const listRaces = async (_req, res) => {
 export const createRace = async (req, res) => {
   try {
     const context = req.visibilityContext;
-    if (!context?.isWorldAdmin) {
+    if (!context?.isWorldAdmin && !context?.isSystemAdmin) {
       return res.status(403).json({ success: false, message: 'Only world admins may create races' });
     }
 
@@ -31,7 +31,7 @@ export const createRace = async (req, res) => {
 export const updateRace = async (req, res) => {
   try {
     const context = req.visibilityContext;
-    if (!context?.isWorldAdmin) {
+    if (!context?.isWorldAdmin && !context?.isSystemAdmin) {
       return res.status(403).json({ success: false, message: 'Only world admins may update races' });
     }
 
@@ -54,7 +54,7 @@ export const updateRace = async (req, res) => {
 export const deleteRace = async (req, res) => {
   try {
     const context = req.visibilityContext;
-    if (!context?.isWorldAdmin) {
+    if (!context?.isWorldAdmin && !context?.isSystemAdmin) {
       return res.status(403).json({ success: false, message: 'Only world admins may delete races' });
     }
 

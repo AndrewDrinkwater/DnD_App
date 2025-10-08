@@ -5,8 +5,17 @@ import {
   UserCampaignRole
 } from '../models/index.js';
 
+const toLower = (value) => (typeof value === 'string' ? value.toLowerCase() : value);
+
 const DM_ROLE_NAMES = ['DM', 'Dungeon Master'];
 const WORLD_ADMIN_ROLE_NAMES = ['WorldAdmin', 'World Admin'];
+const SYSTEM_ADMIN_ROLE_NAMES = ['System Admin', 'System Administrator', 'Admin'];
+
+const DM_ROLE_NAMES_LOWER = DM_ROLE_NAMES.map(toLower);
+const WORLD_ADMIN_ROLE_NAMES_LOWER = WORLD_ADMIN_ROLE_NAMES.map(toLower);
+const SYSTEM_ADMIN_ROLE_NAMES_LOWER = SYSTEM_ADMIN_ROLE_NAMES.map(toLower);
+
+const normalizeRoleNames = (names = []) => names.map(toLower).filter(Boolean);
 
 const unique = (values) => [...new Set(values.filter(Boolean))];
 
@@ -16,9 +25,16 @@ export const applyVisibilityFilter = (options = {}) => async (req, res, next) =>
       return res.status(401).json({ success: false, message: 'Authentication required' });
     }
 
-    const roleNames = (req.user.systemRoles || []).map((role) => role.name);
-    const isWorldAdmin = roleNames.some((name) => WORLD_ADMIN_ROLE_NAMES.includes(name));
-    const isDm = roleNames.some((name) => DM_ROLE_NAMES.includes(name));
+    const rawRoleNames = (req.user.systemRoles || []).map((role) => role.name || role);
+    const roleNames = unique(rawRoleNames);
+    const normalizedRoleNames = normalizeRoleNames(roleNames);
+    const isSystemAdmin = normalizedRoleNames.some((name) =>
+      SYSTEM_ADMIN_ROLE_NAMES_LOWER.includes(name)
+    );
+    const isWorldAdmin = normalizedRoleNames.some((name) =>
+      WORLD_ADMIN_ROLE_NAMES_LOWER.includes(name)
+    );
+    const isDm = normalizedRoleNames.some((name) => DM_ROLE_NAMES_LOWER.includes(name));
 
     const context = req.activeContext || {};
     let { campaignId = null, worldId = null, characterId = null } = context;
@@ -55,16 +71,20 @@ export const applyVisibilityFilter = (options = {}) => async (req, res, next) =>
 
     const visibilityContext = {
       roleNames,
+      isSystemAdmin,
       isWorldAdmin,
       isDm,
-      bypassVisibility: isWorldAdmin || (isDm && options.dmBypass !== false),
+      bypassVisibility: isSystemAdmin || isWorldAdmin || (isDm && options.dmBypass !== false),
       campaignId,
       characterId,
       worldId,
       playerId: req.user.id,
       managedCampaignIds,
       managedWorldIds,
-      worldScope: isWorldAdmin ? null : unique([worldId, ...managedWorldIds].filter(Boolean))
+      worldScope:
+        isSystemAdmin || isWorldAdmin
+          ? null
+          : unique([worldId, ...managedWorldIds].filter(Boolean))
     };
 
     if (!visibilityContext.bypassVisibility && !visibilityContext.campaignId && !visibilityContext.worldId && !visibilityContext.managedWorldIds.length) {

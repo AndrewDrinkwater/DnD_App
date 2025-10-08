@@ -39,7 +39,7 @@ const parsePayload = async (response) => {
 }
 
 export function useApiClient() {
-  const { token } = useAuth()
+  const { token, logout } = useAuth()
 
   const request = useCallback(
     async (path, options = {}) => {
@@ -69,6 +69,10 @@ export function useApiClient() {
 
       const payload = await parsePayload(response)
 
+      if (response.status === 401 && token) {
+        logout?.()
+      }
+
       if (!response.ok || payload?.success === false) {
         const error = new Error(
           payload?.message || `Request failed with status ${response.status}`,
@@ -87,7 +91,7 @@ export function useApiClient() {
 
       return payload
     },
-    [token],
+    [token, logout],
   )
 
   return useMemo(

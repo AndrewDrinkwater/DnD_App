@@ -19,7 +19,7 @@ export const normalizeVisibilityEntries = (entries = []) => {
 
 export const resolveDefaultVisibility = (context) => {
   if (!context) return [];
-  if (context.isWorldAdmin) {
+  if (context.isSystemAdmin || context.isWorldAdmin) {
     return [{ campaign_id: null, player_id: null }];
   }
   if (context.campaignId) {
