@@ -35,7 +35,7 @@ const locationIncludes = (context) => ([
 
 const ensurePrivileged = (context) => {
   if (!context) return false;
-  return context.isWorldAdmin || context.isDm;
+  return context.isSystemAdmin || context.isWorldAdmin || context.isDm;
 };
 
 const loadLocation = async (id, context) => {
@@ -196,7 +196,7 @@ export const listLocationTypes = async (_req, res) => {
 export const createLocationType = async (req, res) => {
   try {
     const context = req.visibilityContext;
-    if (!context?.isWorldAdmin) {
+    if (!context?.isWorldAdmin && !context?.isSystemAdmin) {
       return res.status(403).json({ success: false, message: 'Only world admins may manage location types' });
     }
 
@@ -215,7 +215,7 @@ export const createLocationType = async (req, res) => {
 export const updateLocationType = async (req, res) => {
   try {
     const context = req.visibilityContext;
-    if (!context?.isWorldAdmin) {
+    if (!context?.isWorldAdmin && !context?.isSystemAdmin) {
       return res.status(403).json({ success: false, message: 'Only world admins may manage location types' });
     }
 
@@ -238,7 +238,7 @@ export const updateLocationType = async (req, res) => {
 export const deleteLocationType = async (req, res) => {
   try {
     const context = req.visibilityContext;
-    if (!context?.isWorldAdmin) {
+    if (!context?.isWorldAdmin && !context?.isSystemAdmin) {
       return res.status(403).json({ success: false, message: 'Only world admins may manage location types' });
     }
 

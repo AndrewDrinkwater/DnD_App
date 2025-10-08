@@ -44,7 +44,7 @@ const npcDetailIncludes = (context) => ([
   }
 ]);
 
-const ensurePrivileged = (context) => context?.isWorldAdmin || context?.isDm;
+const ensurePrivileged = (context) => context?.isSystemAdmin || context?.isWorldAdmin || context?.isDm;
 
 const filterNotesForContext = (notes, context) => {
   if (!Array.isArray(notes)) return [];
@@ -333,7 +333,7 @@ export const listNpcTypes = async (_req, res) => {
 export const createNpcType = async (req, res) => {
   try {
     const context = req.visibilityContext;
-    if (!context?.isWorldAdmin) {
+    if (!context?.isWorldAdmin && !context?.isSystemAdmin) {
       return res.status(403).json({ success: false, message: 'Only world admins may manage NPC types' });
     }
 
@@ -352,7 +352,7 @@ export const createNpcType = async (req, res) => {
 export const updateNpcType = async (req, res) => {
   try {
     const context = req.visibilityContext;
-    if (!context?.isWorldAdmin) {
+    if (!context?.isWorldAdmin && !context?.isSystemAdmin) {
       return res.status(403).json({ success: false, message: 'Only world admins may manage NPC types' });
     }
 
@@ -375,7 +375,7 @@ export const updateNpcType = async (req, res) => {
 export const deleteNpcType = async (req, res) => {
   try {
     const context = req.visibilityContext;
-    if (!context?.isWorldAdmin) {
+    if (!context?.isWorldAdmin && !context?.isSystemAdmin) {
       return res.status(403).json({ success: false, message: 'Only world admins may manage NPC types' });
     }
 

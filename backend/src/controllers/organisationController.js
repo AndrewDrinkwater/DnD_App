@@ -41,7 +41,7 @@ const organisationIncludes = (context) => ([
   })
 ]);
 
-const ensurePrivileged = (context) => context?.isWorldAdmin || context?.isDm;
+const ensurePrivileged = (context) => context?.isSystemAdmin || context?.isWorldAdmin || context?.isDm;
 
 const loadOrganisation = async (id, context) => Organisation.findByPk(id, {
   include: organisationIncludes(context)
@@ -210,7 +210,7 @@ export const listOrganisationTypes = async (_req, res) => {
 export const createOrganisationType = async (req, res) => {
   try {
     const context = req.visibilityContext;
-    if (!context?.isWorldAdmin) {
+    if (!context?.isWorldAdmin && !context?.isSystemAdmin) {
       return res.status(403).json({ success: false, message: 'Only world admins may manage organisation types' });
     }
 
@@ -229,7 +229,7 @@ export const createOrganisationType = async (req, res) => {
 export const updateOrganisationType = async (req, res) => {
   try {
     const context = req.visibilityContext;
-    if (!context?.isWorldAdmin) {
+    if (!context?.isWorldAdmin && !context?.isSystemAdmin) {
       return res.status(403).json({ success: false, message: 'Only world admins may manage organisation types' });
     }
 
@@ -252,7 +252,7 @@ export const updateOrganisationType = async (req, res) => {
 export const deleteOrganisationType = async (req, res) => {
   try {
     const context = req.visibilityContext;
-    if (!context?.isWorldAdmin) {
+    if (!context?.isWorldAdmin && !context?.isSystemAdmin) {
       return res.status(403).json({ success: false, message: 'Only world admins may manage organisation types' });
     }
 
