@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import './App.css'
 import { readStoredState, writeStoredState } from './utils/storage'
 import { newId } from './utils/idGenerator'
+import { AuthProvider } from './context/AuthContext'
+import { DataProvider } from './context/DataContext'
 import {
   seededRoles,
   seededUsers,
@@ -2853,7 +2855,7 @@ function RaceLibrary({
   )
 }
 
-function App() {
+function AppContent() {
   const storedState = useMemo(() => readStoredState(STORAGE_KEY, null), [])
   const [session, setSession] = useState(() => {
     const savedSession =
@@ -8636,4 +8638,12 @@ function RecordDrawer({ open, title, subtitle, onClose, actions, children }) {
   )
 }
 
-export default App
+export default function App() {
+  return (
+    <AuthProvider>
+      <DataProvider>
+        <AppContent />
+      </DataProvider>
+    </AuthProvider>
+  )
+}
